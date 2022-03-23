@@ -5,6 +5,7 @@ pragma abicoder v2;
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import '@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol';
+import './interfaces/overlay/v1-core/IOverlayV1Market.sol';
 
 contract BasisTrade {
     ISwapRouter public immutable swapRouter;
