@@ -19,7 +19,8 @@ interface ISwapRouter is IUniswapV3SwapCallback {
     }
 
     /// @notice Swaps `amountIn` of one token for as much as possible of another token
-    /// @param params The parameters necessary for the swap, encoded as `ExactInputSingleParams` in calldata
+    /// @param params The parameters necessary for the swap, encoded as
+    /// @param        `ExactInputSingleParams` in calldata
     /// @return amountOut The amount of the received token
     function exactInputSingle(ExactInputSingleParams calldata params)
         external
@@ -34,8 +35,10 @@ interface ISwapRouter is IUniswapV3SwapCallback {
         uint256 amountOutMinimum;
     }
 
-    /// @notice Swaps `amountIn` of one token for as much as possible of another along the specified path
-    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactInputParams` in calldata
+    /// @notice Swaps `amountIn` of one token for as much as possible of another
+    /// @notice along the specified path
+    /// @param params The parameters necessary for the multi-hop swap, encoded
+    /// @param        as `ExactInputParams` in calldata
     /// @return amountOut The amount of the received token
     function exactInput(ExactInputParams calldata params)
         external
@@ -54,7 +57,8 @@ interface ISwapRouter is IUniswapV3SwapCallback {
     }
 
     /// @notice Swaps as little as possible of one token for `amountOut` of another token
-    /// @param params The parameters necessary for the swap, encoded as `ExactOutputSingleParams` in calldata
+    /// @param params The parameters necessary for the swap, encoded as
+    /// @param        `ExactOutputSingleParams` in calldata
     /// @return amountIn The amount of the input token
     function exactOutputSingle(ExactOutputSingleParams calldata params)
         external
@@ -69,8 +73,10 @@ interface ISwapRouter is IUniswapV3SwapCallback {
         uint256 amountInMaximum;
     }
 
-    /// @notice Swaps as little as possible of one token for `amountOut` of another along the specified path (reversed)
-    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactOutputParams` in calldata
+    /// @notice Swaps as little as possible of one token for `amountOut` of
+    /// @notice another along the specified path (reversed)
+    /// @param params The parameters necessary for the multi-hop swap, encoded
+    /// @param        as `ExactOutputParams` in calldata
     /// @return amountIn The amount of the input token
     function exactOutput(ExactOutputParams calldata params)
         external
