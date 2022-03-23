@@ -23,6 +23,8 @@ contract BasisTrade {
     }
 
     function swapExactInputSingle(uint256 amountIn, bool toEth, address fromAddr, address toAddr) internal returns (uint256 amountOut) {
+        address tokenIn;
+        address tokenOut;
 
         if (toEth == true) {
             address tokenIn = DAI;
@@ -33,9 +35,9 @@ contract BasisTrade {
             address tokenOut = DAI;
         }
 
-        TransferHelper.safeTransferFrom(address tokenIn, msg.sender, address(this), amountIn);
+        TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
 
-        TransferHelper.safeApprove(address tokenIn, address(swapRouter), amountIn);
+        TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
         ISwapRouter.ExactInputSingleParams memory params =
             ISwapRouter.ExactInputSingleParams({
