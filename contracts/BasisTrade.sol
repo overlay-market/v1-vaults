@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import '@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol';
 
 contract BasisTrade {
     ISwapRouter public immutable swapRouter;
@@ -11,20 +12,30 @@ contract BasisTrade {
     /// TODO: DAI needs to be changed to OVL everywhere
     address public DAI;
     address public WETH9;
-
+    address public pool;
     uint24 public constant poolFee = 3000;
 
-    constructor(ISwapRouter _swapRouter, address _DAI, address _WETH9) {
+    constructor(ISwapRouter _swapRouter, address _DAI, address _WETH9, address _pool) {
         swapRouter = _swapRouter;
         DAI = _DAI;
         WETH9 = _WETH9;
+        pool = _pool;
     }
 
-    function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
+    function swapExactInputSingle(uint256 amountIn, bool toEth, address fromAddr, address toAddr) internal returns (uint256 amountOut) {
 
-        TransferHelper.safeTransferFrom(DAI, msg.sender, address(this), amountIn);
+        if (toEth == true) {
+            address tokenIn = DAI;
+            address tokenOut = WETH9;
+        }
+        else {
+            address tokenIn = WETH9;
+            address tokenOut = DAI;
+        }
 
-        TransferHelper.safeApprove(DAI, address(swapRouter), amountIn);
+        TransferHelper.safeTransferFrom(address tokenIn, msg.sender, address(this), amountIn);
+
+        TransferHelper.safeApprove(address tokenIn, address(swapRouter), amountIn);
 
         ISwapRouter.ExactInputSingleParams memory params =
             ISwapRouter.ExactInputSingleParams({
@@ -41,29 +52,7 @@ contract BasisTrade {
         amountOut = swapRouter.exactInputSingle(params);
     }
 
-    function swapExactOutputSingle(uint256 amountOut, uint256 amountInMaximum) internal returns (uint256 amountIn) {
-
-        TransferHelper.safeTransferFrom(DAI, msg.sender, address(this), amountInMaximum);
-
-        TransferHelper.safeApprove(DAI, address(swapRouter), amountInMaximum);
-
-        ISwapRouter.ExactOutputSingleParams memory params =
-            ISwapRouter.ExactOutputSingleParams({
-                tokenIn: DAI,
-                tokenOut: WETH9,
-                fee: poolFee,
-                recipient: msg.sender,
-                deadline: block.timestamp,
-                amountOut: amountOut,
-                amountInMaximum: amountInMaximum,
-                sqrtPriceLimitX96: 0
-            });
-
-        amountIn = swapRouter.exactOutputSingle(params);
-
-        if (amountIn < amountInMaximum) {
-            TransferHelper.safeApprove(DAI, address(swapRouter), 0);
-            TransferHelper.safeTransfer(DAI, msg.sender, amountInMaximum - amountIn);
-        }
+    function getSwapPrice() internal view returns (uint160 swapPrice) {
+        (uint160 sqrtPrice, , , , , , ) = IUniswapV3PoolState(pool).slot0();
     }
 }
