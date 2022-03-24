@@ -2,10 +2,10 @@
 pragma solidity ^0.8.2;
 pragma abicoder v2;
 
-import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
-import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
-import '@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol';
-import './interfaces/overlay/v1-core/IOverlayV1Market.sol';
+import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
+import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
 
 contract BasisTrade {
     ISwapRouter public immutable swapRouter;
@@ -19,11 +19,11 @@ contract BasisTrade {
 
     constructor(
         ISwapRouter _swapRouter,
-        address _DAI, 
-        address _WETH9, 
-        address _pool, 
-        address _ovlMarket) {
-
+        address _DAI,
+        address _WETH9,
+        address _pool,
+        address _ovlMarket
+    ) {
         swapRouter = _swapRouter;
         DAI = _DAI;
         WETH9 = _WETH9;
@@ -35,16 +35,15 @@ contract BasisTrade {
         uint256 amountIn,
         bool toEth,
         address fromAddr,
-        address toAddr) internal returns (uint256 amountOut) {
-
+        address toAddr
+    ) internal returns (uint256 amountOut) {
         address tokenIn;
         address tokenOut;
 
         if (toEth == true) {
             tokenIn = DAI;
             tokenOut = WETH9;
-        }
-        else {
+        } else {
             tokenIn = WETH9;
             tokenOut = DAI;
         }
