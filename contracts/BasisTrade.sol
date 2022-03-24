@@ -14,26 +14,33 @@ contract BasisTrade {
     address public DAI;
     address public WETH9;
     address public pool;
+    address public ovlMarket;
     uint24 public constant poolFee = 3000;
 
-    constructor(ISwapRouter _swapRouter, address _DAI, address _WETH9, address _pool) {
+    constructor(ISwapRouter _swapRouter, address _DAI, address _WETH9, address _pool, address _ovlMarket) {
         swapRouter = _swapRouter;
         DAI = _DAI;
         WETH9 = _WETH9;
         pool = _pool;
+        ovlMarket = _ovlMarket;
     }
 
-    function swapExactInputSingle(uint256 amountIn, bool toEth, address fromAddr, address toAddr) internal returns (uint256 amountOut) {
+    function swapExactInputSingle(
+        uint256 amountIn,
+        bool toEth,
+        address fromAddr,
+        address toAddr) internal returns (uint256 amountOut) {
+
         address tokenIn;
         address tokenOut;
 
         if (toEth == true) {
-            address tokenIn = DAI;
-            address tokenOut = WETH9;
+            tokenIn = DAI;
+            tokenOut = WETH9;
         }
         else {
-            address tokenIn = WETH9;
-            address tokenOut = DAI;
+            tokenIn = WETH9;
+            tokenOut = DAI;
         }
 
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
@@ -57,5 +64,22 @@ contract BasisTrade {
 
     function getSwapPrice() internal view returns (uint160 swapPrice) {
         (uint160 sqrtPrice, , , , , , ) = IUniswapV3PoolState(pool).slot0();
+    }
+
+    function buildOvlPosition(
+        uint256 collateral,
+        uint256 leverage,
+        bool isLong,
+        uint256 priceLimit
+    ) internal returns (uint256 positionId_) {
+        positionId_ = IOverlayV1Market(ovlMarket).build(collateral, leverage, isLong, priceLimit);
+    }
+
+    function unwindOvlPosition(
+        uint256 positionId,
+        uint256 fraction,
+        uint256 priceLimit
+    ) internal {
+        IOverlayV1Market(ovlMarket).unwind(positionId, fraction, priceLimit);
     }
 }
