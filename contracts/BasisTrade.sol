@@ -17,7 +17,13 @@ contract BasisTrade {
     address public ovlMarket;
     uint24 public constant poolFee = 3000;
 
-    constructor(ISwapRouter _swapRouter, address _DAI, address _WETH9, address _pool, address _ovlMarket) {
+    constructor(
+        ISwapRouter _swapRouter,
+        address _DAI, 
+        address _WETH9, 
+        address _pool, 
+        address _ovlMarket) {
+
         swapRouter = _swapRouter;
         DAI = _DAI;
         WETH9 = _WETH9;
@@ -47,17 +53,16 @@ contract BasisTrade {
 
         TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
-        ISwapRouter.ExactInputSingleParams memory params =
-            ISwapRouter.ExactInputSingleParams({
-                tokenIn: DAI,
-                tokenOut: WETH9,
-                fee: poolFee,
-                recipient: msg.sender,
-                deadline: block.timestamp,
-                amountIn: amountIn,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: DAI,
+            tokenOut: WETH9,
+            fee: poolFee,
+            recipient: msg.sender,
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
 
         amountOut = swapRouter.exactInputSingle(params);
     }
