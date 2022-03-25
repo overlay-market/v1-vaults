@@ -10,12 +10,19 @@ import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
 contract BasisTrade {
     ISwapRouter public immutable swapRouter;
 
+    struct Info {
+        uint256 amount;
+        bool deposited;
+        bool withdrawn;
+    }
+
     /// TODO: DAI needs to be changed to OVL everywhere
     address public DAI;
     address public WETH9;
     address public pool;
     address public ovlMarket;
     uint24 public constant poolFee = 3000;
+    mapping (address => Info) public depositorInfo;
 
     constructor(
         ISwapRouter _swapRouter,
@@ -29,6 +36,14 @@ contract BasisTrade {
         WETH9 = _WETH9;
         pool = _pool;
         ovlMarket = _ovlMarket;
+    }
+
+    /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
+    function depositEth(uint256 amountIn) public {
+        TransferHelper.safeTransferFrom(WETH9, msg.sender, address(this), amountIn);
+        depositorInfo[msg.sender].amount = amountIn;
+        depositorInfo[msg.sender].deposited = true;
+        depositorInfo[msg.sender].withdrawn = false;
     }
 
     function swapExactInputSingle(
@@ -47,8 +62,6 @@ contract BasisTrade {
             tokenIn = WETH9;
             tokenOut = DAI;
         }
-
-        TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
 
         TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
