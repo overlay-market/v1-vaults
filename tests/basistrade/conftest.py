@@ -161,6 +161,11 @@ def univ3_oe_pool(create_univ3_oe_pool):
 
 
 @pytest.fixture(scope="module")
+def univ3_oe_pool_immutables(univ3_oe_pool):
+    yield interface.IUniswapV3PoolImmutables(univ3_oe_pool.address)
+
+
+@pytest.fixture(scope="module")
 def mint_router(gov):
     yield gov.deploy(TestMintRouter)
 
@@ -194,7 +199,7 @@ def feed_factory(create_feed_factory):
     yield create_feed_factory()
 
 
-@pytest.fixture(scope="module", params=[(600, 3600)])
+@pytest.fixture(scope="module")
 def create_feed(ovl_v1_core, feed_factory, weth, ovl, alice):
     def create_feed():
         market_base_token = ovl
@@ -213,7 +218,7 @@ def create_feed(ovl_v1_core, feed_factory, weth, ovl, alice):
                                      market_fee,
                                      {"from": alice})
         feed_addr = tx.return_value
-        return ovl_v1_core.interface.IOverlayV1Feed(feed_addr)
+        return ovl_v1_core.OverlayV1UniswapV3Feed.at(feed_addr)
 
     yield create_feed
 
