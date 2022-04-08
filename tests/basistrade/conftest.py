@@ -25,8 +25,13 @@ def bob(accounts):
 
 
 @pytest.fixture(scope="module")
-def rando(accounts):
+def rando1(accounts):
     yield accounts[3]
+
+
+@pytest.fixture(scope="module")
+def rando2(accounts):
+    yield accounts[4]
 
 
 @pytest.fixture(scope="module")
