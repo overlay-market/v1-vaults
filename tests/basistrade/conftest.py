@@ -1,10 +1,12 @@
 import pytest
-from brownie import interface, Contract, EthBasisTrade
+from brownie import interface, chain, Contract, EthBasisTrade, TestMintRouter, web3
+from brownie_tokens import MintableForkToken, ERC20
+import numpy as np
 
 
 @pytest.fixture(scope="module")
 def ovl_v1_core(pm):
-    return pm("overlay-market/v1-core@1.0.0-beta.1")
+    return pm("overlay-market/v1-core@1.0.0-beta.2")
 
 
 @pytest.fixture(scope="module")
@@ -30,6 +32,21 @@ def rando(accounts):
 @pytest.fixture(scope="module")
 def fee_recipient(accounts):
     yield accounts[4]
+
+
+@pytest.fixture(scope="module")
+def minter_role():
+    yield web3.solidityKeccak(['string'], ["MINTER"])
+
+
+@pytest.fixture(scope="module")
+def burner_role():
+    yield web3.solidityKeccak(['string'], ["BURNER"])
+
+
+@pytest.fixture(scope="module")
+def governor_role():
+    yield web3.solidityKeccak(['string'], ["GOVERNOR"])
 
 
 @pytest.fixture(scope="module", params=[8000000])
@@ -62,36 +79,111 @@ def weth():
     yield Contract.from_explorer("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 
 
-@pytest.fixture(scope="module")
-def uni():
-    # to be used as example ovl
-    yield Contract.from_explorer("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984")
+@pytest.fixture(scope="module", params=[(100e18)])
+def alice_weth(alice, weth, request):
+    amount = request.param
+    weth_token = MintableForkToken(weth.address)
+    weth_token._mint_for_testing(alice, amount)
+    yield alice
+
+
+@pytest.fixture(scope="module", params=[(100e18)])
+def bob_weth(bob, weth, request):
+    amount = request.param
+    weth_token = MintableForkToken(weth.address)
+    weth_token._mint_for_testing(bob, amount)
+    yield bob
 
 
 @pytest.fixture(scope="module")
-def pool_daiweth_30bps():
-    yield Contract.from_explorer("0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8")
+def uni_v3_factory():
+    yield Contract.from_explorer("0x1F98431c8aD98523631AE4a59f267346ea31F984")
+
+
+@pytest.fixture(scope="module", params=[(3000)])
+def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
+                         alice_weth, bob_weth, mint_router):
+    fees = request.param
+
+    # define function for LPing to OVL/WETH pool
+    def lp(pool, amount, tick_lower, tick_upper, l_provider):
+        # approve weth and ovl spending to pool contract
+        weth.approve(mint_router.address,
+                    weth.balanceOf(alice_weth), {'from': alice_weth})
+        weth.approve(mint_router.address,
+                    weth.balanceOf(bob_weth), {'from': bob_weth})
+        ovl.approve(mint_router.address,
+                    ovl.balanceOf(alice_weth), {'from': alice_weth})
+        ovl.approve(mint_router.address,
+                    ovl.balanceOf(bob_weth), {'from': bob_weth})
+        mint_router.mint(pool.address, tick_lower, tick_upper,
+                         amount, {"from": l_provider})
+    
+    
+    # define function for swapping. add a lag between swaps so 1h TWAP is possible
+    def swap(pool, size_range, addresses, num_of_swaps, lag):
+        for i in range(num_of_swaps):
+            size = np.random.choice(size_range, size=1)[0]
+            addr = np.random.choice(addresses, size=1)[0]
+            zero_or_one = np.random.choice([True, False], size=1)[0]
+            if zero_or_one:
+                # tried to use zero_or_one as an input to `swap` but was
+                # erroring with: Cannot convert bool_ 'False' to bool
+                mint_router.swap(pool, True, size, {'from': addr})
+            else:
+                mint_router.swap(pool, False, size, {'from': addr})
+            chain.mine(timedelta=lag)
+            print(f'Executing swap number: {i}')
+    
+    
+    def create_univ3_oe_pool(owner=alice, token_a=ovl,
+                          token_b=weth, fee=fees):
+        # deploy OVL/WETH pool
+        tx = interface\
+                .IUniswapV3Factory(uni_v3_factory.address)\
+                .createPool(token_a, token_b, fee, {"from": owner})
+        pool = interface.IUniswapV3PoolActions(tx.return_value)
+        # initialize pool with initial price. 1 WETH ~= 1 OVL
+        pool.initialize(7.9220240490215315e28, {"from": owner})
+        # set tracked observations
+        pool.increaseObservationCardinalityNext(350, {"from": owner})
+        # provide liquidity
+        lp(pool, 100e18, -36000, 36000, alice_weth)
+        swap(pool, np.arange(1e17,9e17,step=1e16), [alice_weth, bob_weth], 80, 90)
+        return pool
+    
+    yield create_univ3_oe_pool
 
 
 @pytest.fixture(scope="module")
-def pool_uniweth_30bps():
-    # to be used as example ovlweth pool
-    yield Contract.from_explorer("0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801")
+def univ3_oe_pool(create_univ3_oe_pool):
+    yield create_univ3_oe_pool()
 
 
-@pytest.fixture(scope="module", params=[(600, 3600)])
-def create_feed_factory(ovl_v1_core, gov, pool_uniweth_30bps, weth,
-                        uni, request):
-    micro, macro = request.param
-    oe_pool = pool_uniweth_30bps.address
-    tok = uni.address
+@pytest.fixture(scope="module")
+def mint_router(gov):
+    yield gov.deploy(TestMintRouter)
 
-    def create_feed_factory(ovlweth_pool=oe_pool, ovl=tok, micro_window=micro,
-                            macro_window=macro):
+
+@pytest.fixture(scope="module")
+def univ3_swap_router():
+    yield Contract.from_explorer("0xE592427A0AEce92De3Edee1F18E0157C05861564")
+
+
+@pytest.fixture(scope="module", params=[(600, 3600, 300, 15)])
+def create_feed_factory(ovl_v1_core, gov, ovl, univ3_oe_pool,
+                        uni_v3_factory, request):
+    
+    micro, macro, observation_cardinality_min, avg_block_time= request.param
+    pool_state = interface.IUniswapV3PoolState(univ3_oe_pool.address).slot0()
+
+    def create_feed_factory():
         # deploy feed factory
         ovl_uni_feed_factory = ovl_v1_core.OverlayV1UniswapV3Factory
-        feed_factory = gov.deploy(ovl_uni_feed_factory, ovlweth_pool, ovl,
-                                  micro_window, macro_window)
+        feed_factory = gov.deploy(ovl_uni_feed_factory, ovl, uni_v3_factory,
+                                  micro, macro,
+                                  observation_cardinality_min,
+                                  avg_block_time)
         return feed_factory
 
     yield create_feed_factory
@@ -103,18 +195,25 @@ def feed_factory(create_feed_factory):
 
 
 @pytest.fixture(scope="module", params=[(600, 3600)])
-def create_feed(feed_factory, pool_daiweth_30bps, weth, dai, alice):
+def create_feed(ovl_v1_core, feed_factory, weth, ovl, alice):
     def create_feed():
-        market_pool = pool_daiweth_30bps
-        market_base_token = weth
-        market_quote_token = dai
+        market_base_token = ovl
+        market_quote_token = weth
+        ovlweth_base_token = weth
+        ovlweth_quote_token = ovl
+        market_fee = 3000
         market_base_amount = 1000000000000000000  # 1e18
 
-        tx = feed_factory.deployFeed(market_pool, market_base_token,
+        tx = feed_factory.deployFeed(market_base_token,
                                      market_quote_token,
-                                     market_base_amount, {"from": alice})
+                                     market_fee,
+                                     market_base_amount,
+                                     ovlweth_base_token,
+                                     ovlweth_quote_token,
+                                     market_fee,
+                                     {"from": alice})
         feed_addr = tx.return_value
-        return interface.IOverlayV1Feed(feed_addr)
+        return ovl_v1_core.interface.IOverlayV1Feed(feed_addr)
 
     yield create_feed
 
@@ -139,9 +238,10 @@ def feed(create_feed):
     750000000000000,  # tradingFeeRate
     100000000000000,  # minCollateral
     25000000000000,  # priceDriftUpperLimit
+    15, # averageBlockTime
 )])
 def create_factory(ovl_v1_core, gov, fee_recipient, ovl, feed_factory, feed,
-                   request):
+                   governor_role, request):
     params = request.param
 
     def create_factory(tok=ovl, recipient=fee_recipient, risk_params=params):
@@ -151,17 +251,16 @@ def create_factory(ovl_v1_core, gov, fee_recipient, ovl, feed_factory, feed,
         factory = gov.deploy(ovl_factory, tok, recipient)
 
         # grant market factory token admin role
-        tok.grantRole(tok.ADMIN_ROLE(), factory, {"from": gov})
+        tok.grantRole(tok.DEFAULT_ADMIN_ROLE(), factory, {"from": gov})
 
         # grant gov the governor role on token to access factory methods
-        tok.grantRole(tok.GOVERNOR_ROLE(), gov, {"from": gov})
+        tok.grantRole(governor_role, gov, {"from": gov})
 
         # add feed factory as approved for market factory to deploy markets on
         factory.addFeedFactory(feed_factory, {"from": gov})
 
-        # deploy a market on the feed
-        _ = factory.deployMarket(feed_factory, feed, risk_params,
-                                 {"from": gov})
+        # deploy a market on feed
+        factory.deployMarket(feed_factory, feed, risk_params, {"from": gov})
 
         return factory
 
@@ -174,21 +273,29 @@ def factory(create_factory):
 
 
 @pytest.fixture(scope="module")
-def market(gov, feed, factory):
+def market(ovl_v1_core, gov, feed, factory):
     market_addr = factory.getMarket(feed)
-    market = interface.IOverlayV1Market(market_addr)
+    market = ovl_v1_core.OverlayV1Market.at(market_addr)
     yield market
 
 
-# @pytest.fixture(scope="module")
-# def create_market_state(rando, ovl):
-#     def create_market_state(factory, deployer=rando):
-#         market_state = deployer.deploy(OverlayV1MarketState, factory)
-#         return market_state
+@pytest.fixture(scope="module")
+def create_eth_basis_trade(univ3_swap_router, weth, ovl,
+                           univ3_oe_pool, market, gov):
+    
+    def create_eth_basis_trade(
+                        swap_router=univ3_swap_router.address,
+                        weth=weth.address,
+                        ovl=ovl.address,
+                        pool=univ3_oe_pool.address,
+                        mrkt=market.address
+                        ):
+        basistrade = gov.deploy(EthBasisTrade, swap_router, 
+                                weth, ovl, pool, mrkt)
+        return basistrade
+    yield create_eth_basis_trade
 
-#     yield create_market_state
 
-
-# @pytest.fixture(scope="module")
-# def market_state(create_market_state, factory):
-#     yield create_market_state(factory)
+@pytest.fixture(scope="module")
+def eth_basis_trade(create_eth_basis_trade):
+    yield create_eth_basis_trade()

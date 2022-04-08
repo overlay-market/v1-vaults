@@ -3,12 +3,11 @@ pragma solidity 0.8.10;
 pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Token.sol";
-import "@overlay/v1-core/contracts/interfaces/feeds/IOverlayV1Feed.sol";
+
 
 // forks of uniswap libraries for solidity^0.8.10
 import "./libraries/uniswapv3-core/FullMath.sol";
@@ -17,6 +16,7 @@ import "./libraries/uniswapv3-core/TickMath.sol";
 contract EthBasisTrade {
     ISwapRouter public immutable swapRouter;
     IOverlayV1Token public immutable ovl;
+    IOverlayV1Market public immutable ovlMarket;
     
     struct dInfo {
         uint256 amount;
@@ -26,10 +26,8 @@ contract EthBasisTrade {
     mapping (address => dInfo) public depositorInfo;
 
     /// TODO: DAI needs to be changed to OVL everywhere
-    address public DAI;
     address public WETH9;
     address public pool;
-    address public ovlMarket;
     uint24 public constant poolFee = 3000;
     ///@dev when posTracker = 0, contract holds spot WETH only (ideally should be short)
     ///@dev when posTracker = 1, contract holds a long on ETH/OVL
@@ -40,38 +38,38 @@ contract EthBasisTrade {
 
     constructor(
         ISwapRouter _swapRouter,
-        address _DAI,
         address _WETH9,
         address _ovl,
         address _pool,
         address _ovlMarket
     ) {
         swapRouter = _swapRouter;
-        DAI = _DAI;
         WETH9 = _WETH9;
         ovl = IOverlayV1Token(_ovl);
         pool = _pool;
-        ovlMarket = _ovlMarket;
+        ovlMarket = IOverlayV1Market(_ovlMarket);
     }
 
     /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
     function depositEth(uint256 amountIn) public {
-        TransferHelper.safeTransferFrom(WETH9, msg.sender, address(this), amountIn);
+        IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
         depositorInfo[msg.sender].amount = amountIn;
         depositorInfo[msg.sender].deposited = true;
         depositorInfo[msg.sender].withdrawn = false;
     }
     
-    function getSwapPrice() internal view returns (uint160 swapPrice) {
-        (uint160 sqrtPrice, , , , , , ) = IUniswapV3PoolState(pool).slot0();
+    // TODO: change to internal function after testing
+    function getSwapPrice() public view returns (uint160 sqrtPrice, int24 tick) {
+        (sqrtPrice, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
     }
 
+    // TODO: change to internal function after testing
     function getQuoteAtTick(
         int24 tick,
         uint128 baseAmount,
         address baseToken,
         address quoteToken
-    ) internal pure returns (uint256 quoteAmount) {
+    ) public pure returns (uint256 quoteAmount) {
         uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
 
         // Calculate quoteAmount with better precision if 
@@ -129,7 +127,7 @@ contract EthBasisTrade {
     //     bool isLong,
     //     uint256 priceLimit
     // ) internal returns (uint256 positionId_) {
-    //     positionId_ = IOverlayV1Market(ovlMarket).build(collateral, leverage, isLong, priceLimit);
+    //     positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
     // }
 
     // function unwindOvlPosition(
@@ -137,7 +135,7 @@ contract EthBasisTrade {
     //     uint256 fraction,
     //     uint256 priceLimit
     // ) internal {
-    //     IOverlayV1Market(ovlMarket).unwind(positionId, fraction, priceLimit);
+    //     ovlMarket.unwind(positionId, fraction, priceLimit);
     // }
 
     // function oiShortGTLong() internal returns (uint256 posId) {

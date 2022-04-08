@@ -61,5 +61,10 @@ def test_market_fixture(market, feed, ovl, factory, gov):
     assert market.timestampUpdateLast() == chain[-1]["timestamp"]
 
 
-# def test_market_state_fixture(factory, market_state):
-#     assert market_state.factory() == factory
+def test_eth_basis_trade(eth_basis_trade, univ3_swap_router,
+                         weth, ovl, univ3_oe_pool, market):
+    assert eth_basis_trade.swapRouter() == univ3_swap_router
+    assert eth_basis_trade.WETH9() == weth
+    assert eth_basis_trade.ovl() == ovl
+    assert eth_basis_trade.pool() == univ3_oe_pool
+    assert eth_basis_trade.ovlMarket() == market
