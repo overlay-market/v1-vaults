@@ -150,7 +150,9 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
         pool = interface.IUniswapV3PoolActions(tx.return_value)
         # initialize pool with initial price. 1 WETH ~= 1 OVL
         pool.initialize(7.9220240490215315e28, {"from": owner})
-        # set tracked observations
+        # tx to increase cardinality errors with "timeout" under
+        # default settings. therefore changed `timeout` setting in
+        # network_config.yaml for mainnet-fork to 180 (default: 120)
         pool.increaseObservationCardinalityNext(350, {"from": owner})
         # provide liquidity
         lp(pool, 100e18, -36000, 36000, alice_weth)

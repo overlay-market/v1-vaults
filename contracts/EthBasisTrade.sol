@@ -3,6 +3,7 @@ pragma solidity 0.8.10;
 pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
@@ -57,21 +58,23 @@ contract EthBasisTrade {
         depositorInfo[msg.sender].deposited = true;
         depositorInfo[msg.sender].withdrawn = false;
     }
-    
-    // TODO: change to internal function after testing
-    function getSwapPrice() public view returns (uint160 sqrtPrice, int24 tick) {
-        (sqrtPrice, tick, , , , , ) = IUniswapV3Pool(pool).slot0();
-    }
 
-    // TODO: change to internal function after testing
+    /// @dev similar to getQuoteAtTick in uniswap v3
     function getQuoteAtTick(
-        int24 tick,
+        bool toEth,
         uint128 baseAmount,
         address baseToken,
         address quoteToken
-    ) public pure returns (uint256 quoteAmount) {
+    ) public view returns (uint256 quoteAmount) {
+        int24 tick;
+        int24 tick_curr;
+        (, tick_curr, , , , , ) = IUniswapV3Pool(pool).slot0();
+        if (toEth == true) {
+            tick = tick_curr + 200;
+        } else {
+            tick = tick_curr - 200;
+        }
         uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
-
         // Calculate quoteAmount with better precision if 
         // it doesn't overflow when multiplied by itself
         if (sqrtRatioX96 <= type(uint128).max) {
@@ -87,46 +90,47 @@ contract EthBasisTrade {
         }
     }
 
-    // function swapExactInputSingle(
-    //     uint256 amountIn,
-    //     uint256 amountOutMinimum,
-    //     bool toEth,
-    //     address fromAddr,
-    //     address toAddr
-    // ) internal returns (uint256 amountOut) {
-    //     address tokenIn;
-    //     address tokenOut;
+    function swapExactInputSingle(
+        uint256 amountIn,
+        bool toEth
+    ) external returns (uint256 amountOut) {
+        address tokenIn;
+        address tokenOut;
 
-    //     if (toEth == true) {
-    //         tokenIn = DAI;
-    //         tokenOut = WETH9;
-    //     } else {
-    //         tokenIn = WETH9;
-    //         tokenOut = DAI;
-    //     }
+        if (toEth == true) {
+            tokenIn = address(ovl);
+            tokenOut = WETH9;
+        } else {
+            tokenIn = WETH9;
+            tokenOut = address(ovl);
+        }
+        uint256 amountOutMinimum = getQuoteAtTick(toEth,
+                                                  uint128(amountIn),
+                                                  tokenIn,
+                                                  tokenOut);
 
-    //     TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
+        TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
-    //     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-    //         tokenIn: DAI,
-    //         tokenOut: WETH9,
-    //         fee: poolFee,
-    //         recipient: msg.sender,
-    //         deadline: block.timestamp,
-    //         amountIn: amountIn,
-    //         amountOutMinimum: amountOutMinimum,
-    //         sqrtPriceLimitX96: 0
-    //     });
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: poolFee,
+            recipient: address(this),
+            deadline: block.timestamp + 120,
+            amountIn: amountIn,
+            amountOutMinimum: amountOutMinimum,
+            sqrtPriceLimitX96: 0
+        });
 
-    //     amountOut = swapRouter.exactInputSingle(params);
-    // }
+        amountOut = swapRouter.exactInputSingle(params);
+    }
 
     // function buildOvlPosition(
     //     uint256 collateral,
     //     uint256 leverage,
     //     bool isLong,
     //     uint256 priceLimit
-    // ) internal returns (uint256 positionId_) {
+    // ) external returns (uint256 positionId_) {
     //     positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
     // }
 
@@ -134,7 +138,7 @@ contract EthBasisTrade {
     //     uint256 positionId,
     //     uint256 fraction,
     //     uint256 priceLimit
-    // ) internal {
+    // ) external {
     //     ovlMarket.unwind(positionId, fraction, priceLimit);
     // }
 
