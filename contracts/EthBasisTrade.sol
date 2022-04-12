@@ -30,11 +30,9 @@ contract EthBasisTrade {
     address public WETH9;
     address public pool;
     uint24 public constant poolFee = 3000;
-    ///@dev when posTracker = 0, contract holds spot WETH only (ideally should be short)
-    ///@dev when posTracker = 1, contract holds a long on ETH/OVL
-    ///@dev when posTracker = 2, contract holds spot WETH only (ideally lending on money market)
-    ///@dev when posTracker = 3, contract holds spot WETH only
-    uint256 public posTracker = 3;
+    ///@dev when curr_state = 0, contract holds spot WETH only
+    ///@dev when curr_state = 1, contract holds a long on ETH/OVL
+    uint256 public curr_state = 0;
     // TODO: change to enum
 
     constructor(
