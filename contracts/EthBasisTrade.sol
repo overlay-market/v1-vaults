@@ -8,12 +8,15 @@ import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Token.sol";
+import "@overlay/v1-core/contracts/libraries/FixedPoint.sol";
 
 // forks of uniswap libraries for solidity^0.8.10
 import "./libraries/uniswapv3-core/FullMath.sol";
 import "./libraries/uniswapv3-core/TickMath.sol";
 
 contract EthBasisTrade {
+    using FixedPoint for uint256;
+    
     ISwapRouter public immutable swapRouter;
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
@@ -33,9 +36,9 @@ contract EthBasisTrade {
     address public WETH9;
     address public pool;
     uint24 public constant poolFee = 3000;
-    ///@dev when curr_state = 0, contract holds spot WETH only
-    ///@dev when curr_state = 1, contract holds a long on ETH/OVL
-    uint256 public curr_state = 0;
+    ///@dev when currState = 0, contract holds spot WETH only
+    ///@dev when currState = 1, contract holds a long on ETH/OVL
+    uint256 public currState = 0;
     // TODO: change to enum
 
     constructor(
@@ -55,7 +58,7 @@ contract EthBasisTrade {
     /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
     function depositWeth(uint256 amountIn) public {
         IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
-        if (curr_state == 0) {
+        if (currState == 0) {
             totalPre = totalPre + amountIn;
             depositorAddressPre.push(msg.sender);
             depositorInfoPre[msg.sender] = amountIn;
@@ -100,7 +103,7 @@ contract EthBasisTrade {
     function swapExactInputSingle(
         uint256 amountIn,
         bool toEth
-    ) external returns (uint256 amountOut) {
+    ) public returns (uint256 amountOut) {
         address tokenIn;
         address tokenOut;
 
@@ -134,11 +137,13 @@ contract EthBasisTrade {
 
     function buildOvlPosition(
         uint256 collateral,
+        uint256 fee,
         uint256 leverage,
         bool isLong,
         uint256 priceLimit
-    ) external returns (uint256 positionId_) {
-        TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral+1e18);
+    ) public returns (uint256 positionId_) {
+
+        TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral+fee);
         positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
     }
 
@@ -146,7 +151,23 @@ contract EthBasisTrade {
         uint256 positionId,
         uint256 fraction,
         uint256 priceLimit
-    ) external {
+    ) public {
         ovlMarket.unwind(positionId, fraction, priceLimit);
+    }
+
+    function getOverlayTradingFee(
+        uint totalSize
+        ) public view returns (uint256 tradeSize, uint256 fee) {
+        fee = totalSize.mulUp(ovlMarket.params(11));
+        tradeSize = totalSize - fee;
+        }
+
+    function update(bool wethToLong) external {
+        if (wethToLong) {
+            currState = 1;
+            uint ovlTotalPre = swapExactInputSingle(totalPre, false);
+            (uint collateral, uint fee) = getOverlayTradingFee(ovlTotalPre);
+            buildOvlPosition(collateral, fee, 1e18, true, 10e18); // fix price limit
+        }
     }
 }
