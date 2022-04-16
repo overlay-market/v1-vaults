@@ -18,6 +18,8 @@ contract EthBasisTrade {
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
     
+    uint public totalPre;
+
     address[] public depositorAddressPre;
     mapping (address => uint) public depositorInfoPre;
 
@@ -59,8 +61,8 @@ contract EthBasisTrade {
             depositorInfoPre[msg.sender] = amountIn;
         } else {
             depositorAddressPost.push(msg.sender);
-            depositorInfoPost[msg.sender] = amountIn;
-            // long ovl/weth by amountIn here
+            depositorInfoPost[msg.sender].amount = amountIn;
+            // long weth/ovl by amountIn here
         }
     }
 
@@ -136,6 +138,7 @@ contract EthBasisTrade {
         bool isLong,
         uint256 priceLimit
     ) external returns (uint256 positionId_) {
+        TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral+1e18);
         positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
     }
 

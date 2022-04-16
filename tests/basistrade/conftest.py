@@ -91,7 +91,7 @@ def weth():
     yield load_contract("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 
 
-@pytest.fixture(scope="module", params=[(100e18)])
+@pytest.fixture(scope="module", params=[(4000000*1e18)])
 def alice_weth(alice, weth, request):
     amount = request.param
     weth_token = MintableForkToken(weth.address)
@@ -162,7 +162,7 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
         # network_config.yaml for mainnet-fork to 180 (default: 120)
         pool.increaseObservationCardinalityNext(310, {"from": owner})
         # provide liquidity
-        lp(pool, 100e18, -36000, 36000, alice_weth)
+        lp(pool, 1000e18, -36000, 36000, alice_weth)
         swap(pool, np.arange(1e17,9e17,step=1e16), [alice_weth, bob_weth], 80, 90)
         return pool
     
