@@ -74,14 +74,21 @@ def ovl(create_token):
     yield create_token()
 
 
+def load_contract(address):
+    try:
+        return Contract(address)
+    except ValueError:
+        return Contract.from_explorer(address)
+
+
 @pytest.fixture(scope="module")
 def dai():
-    yield Contract.from_explorer("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+    yield load_contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
 
 @pytest.fixture(scope="module")
 def weth():
-    yield Contract.from_explorer("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
+    yield load_contract("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 
 
 @pytest.fixture(scope="module", params=[(100e18)])
@@ -102,7 +109,7 @@ def bob_weth(bob, weth, request):
 
 @pytest.fixture(scope="module")
 def uni_v3_factory():
-    yield Contract.from_explorer("0x1F98431c8aD98523631AE4a59f267346ea31F984")
+    yield load_contract("0x1F98431c8aD98523631AE4a59f267346ea31F984")
 
 
 @pytest.fixture(scope="module", params=[(3000)])
@@ -153,7 +160,7 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
         # tx to increase cardinality errors with "timeout" under
         # default settings. therefore changed `timeout` setting in
         # network_config.yaml for mainnet-fork to 180 (default: 120)
-        pool.increaseObservationCardinalityNext(350, {"from": owner})
+        pool.increaseObservationCardinalityNext(310, {"from": owner})
         # provide liquidity
         lp(pool, 100e18, -36000, 36000, alice_weth)
         swap(pool, np.arange(1e17,9e17,step=1e16), [alice_weth, bob_weth], 80, 90)
@@ -179,7 +186,7 @@ def mint_router(gov):
 
 @pytest.fixture(scope="module")
 def univ3_swap_router():
-    yield Contract.from_explorer("0xE592427A0AEce92De3Edee1F18E0157C05861564")
+    yield load_contract("0xE592427A0AEce92De3Edee1F18E0157C05861564")
 
 
 @pytest.fixture(scope="module", params=[(600, 3600, 300, 15)])

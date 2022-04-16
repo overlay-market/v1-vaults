@@ -9,7 +9,6 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Token.sol";
 
-
 // forks of uniswap libraries for solidity^0.8.10
 import "./libraries/uniswapv3-core/FullMath.sol";
 import "./libraries/uniswapv3-core/TickMath.sol";
@@ -19,14 +18,16 @@ contract EthBasisTrade {
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
     
-    struct dInfo {
-        uint256 amount;
-        bool deposited;
-        bool withdrawn;
-    }
-    mapping (address => dInfo) public depositorInfo;
+    address[] public depositorAddressPre;
+    mapping (address => uint) public depositorInfoPre;
 
-    /// TODO: DAI needs to be changed to OVL everywhere
+    address[] public depositorAddressPost;
+    struct dInfoPostStruct {
+        uint256 amount;
+        uint256 posId;
+    }
+    mapping (address => dInfoPostStruct) public depositorInfoPost;
+
     address public WETH9;
     address public pool;
     uint24 public constant poolFee = 3000;
@@ -50,11 +51,17 @@ contract EthBasisTrade {
     }
 
     /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
-    function depositEth(uint256 amountIn) public {
+    function depositWeth(uint256 amountIn) public {
         IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
-        depositorInfo[msg.sender].amount = amountIn;
-        depositorInfo[msg.sender].deposited = true;
-        depositorInfo[msg.sender].withdrawn = false;
+        if (curr_state == 0) {
+            totalPre = totalPre + amountIn;
+            depositorAddressPre.push(msg.sender);
+            depositorInfoPre[msg.sender] = amountIn;
+        } else {
+            depositorAddressPost.push(msg.sender);
+            depositorInfoPost[msg.sender] = amountIn;
+            // long ovl/weth by amountIn here
+        }
     }
 
     /// @dev similar to getQuoteAtTick in uniswap v3
@@ -123,44 +130,20 @@ contract EthBasisTrade {
         amountOut = swapRouter.exactInputSingle(params);
     }
 
-    // function buildOvlPosition(
-    //     uint256 collateral,
-    //     uint256 leverage,
-    //     bool isLong,
-    //     uint256 priceLimit
-    // ) external returns (uint256 positionId_) {
-    //     positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
-    // }
+    function buildOvlPosition(
+        uint256 collateral,
+        uint256 leverage,
+        bool isLong,
+        uint256 priceLimit
+    ) external returns (uint256 positionId_) {
+        positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
+    }
 
-    // function unwindOvlPosition(
-    //     uint256 positionId,
-    //     uint256 fraction,
-    //     uint256 priceLimit
-    // ) external {
-    //     ovlMarket.unwind(positionId, fraction, priceLimit);
-    // }
-
-    // function oiShortGTLong() internal returns (uint256 posId) {
-    //     swapExactInputSingle(amountIn, amountOutMinimum, toEth, fromAddr, toAddr);
-    //     posId = buildOvlPosition(collateral, leverage, ovlLong, priceLimit);
-    //     positionTracker = 1;
-    // }
-    
-    // function oiLongGTShort(uint256 posId, uint256 priceLimit) {
-    //     unwindOvlPosition(posId, 1e18, priceLimit);
-    //     swapExactInputSingle(amountIn, amountOutMinimum, toEth, fromAddr, toAddr);
-    //     positionTracker = 0;
-    // }
-
-    // function update(uint256 takePosition, uint256 priceLimit) public {
-    //     /// when oiLong > oiShort
-    //     if (takePosition == 0) {
-    //         // require(check if ovl position exists)
-    //         oiLongGTShort();
-    //     } else if (takePosition == 1) {
-    //         // require(check if weth balance greater than 0)
-    //         oiShortGTlong();
-    //     }
-        
-    // }
+    function unwindOvlPosition(
+        uint256 positionId,
+        uint256 fraction,
+        uint256 priceLimit
+    ) external {
+        ovlMarket.unwind(positionId, fraction, priceLimit);
+    }
 }
