@@ -21,11 +21,13 @@ contract EthBasisTrade {
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
     
+    // tracking info before contract goes long
     uint public totalPre;
-
     address[] public depositorAddressPre;
     mapping (address => uint) public depositorInfoPre;
+    uint public depositorIdPre;
 
+    // tracking info after contract goes long
     address[] public depositorAddressPost;
     struct dInfoPostStruct {
         uint256 amount;
@@ -33,15 +35,12 @@ contract EthBasisTrade {
     }
     mapping (address => dInfoPostStruct) public depositorInfoPost;
 
-    uint public depositorIdPre;
-
     address public WETH9;
     address public pool;
     uint24 public constant poolFee = 3000;
     ///@dev when currState = 0, contract holds spot WETH only
     ///@dev when currState = 1, contract holds a long on ETH/OVL
-    uint256 public currState = 0;
-    // TODO: change to enum
+    uint256 public currState = 0; // TODO: change to enum
 
     constructor(
         ISwapRouter _swapRouter,
@@ -157,11 +156,12 @@ contract EthBasisTrade {
         ovlMarket.unwind(positionId, fraction, priceLimit);
     }
 
+    /// @notice collateral is equal to notional size since leverage is always 1 for basis trade
     function getOverlayTradingFee(
         uint totalSize
-        ) public view returns (uint256 tradeSize, uint256 fee) {
-        fee = totalSize.mulUp(ovlMarket.params(11));
-        tradeSize = totalSize - fee;
+        ) public view returns (uint collateral, uint fee) {
+        collateral = totalSize.divDown(1e18 + ovlMarket.params(11));
+        fee = collateral.mulUp(ovlMarket.params(11));
         }
 
     function update(bool wethToLong) external {
