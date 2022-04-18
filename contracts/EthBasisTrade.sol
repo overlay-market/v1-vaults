@@ -33,6 +33,8 @@ contract EthBasisTrade {
     }
     mapping (address => dInfoPostStruct) public depositorInfoPost;
 
+    uint public depositorIdPre;
+
     address public WETH9;
     address public pool;
     uint24 public constant poolFee = 3000;
@@ -167,7 +169,33 @@ contract EthBasisTrade {
             currState = 1;
             uint ovlTotalPre = swapExactInputSingle(totalPre, false);
             (uint collateral, uint fee) = getOverlayTradingFee(ovlTotalPre);
-            buildOvlPosition(collateral, fee, 1e18, true, 10e18); // fix price limit
+            depositorIdPre = buildOvlPosition(collateral,
+                                              fee,
+                                              1e18,
+                                              true,
+                                              10e18); // TODO: fix price limit
+        } else {
+            currState = 0;
+            uint ovlBalancePreUnwind = ovl.balanceOf(address(this));
+            unwindOvlPosition(depositorIdPre, 1e18, 0); // TODO: fix price limit
+            uint ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+            uint ethAmount = swapExactInputSingle(ovlAmount, true);
+            if (ethAmount >= totalPre) {
+                uint delta = ethAmount - totalPre;
+                uint deltaPerc = delta.divUp(totalPre) + 1e18; // TODO: better name reqd since 1e18 added
+                for (uint i = 0; i < depositorAddressPre.length; i += 1) {
+                    uint updatedAddressAmount = depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc);
+                    depositorInfoPre[depositorAddressPre[i]] = updatedAddressAmount;
+                }
+            } else {
+                uint delta = totalPre - ethAmount;
+                uint deltaPerc = 1e18 - delta.divUp(totalPre); // TODO: better name reqd since 1e18 added
+                for (uint i = 0; i < depositorAddressPre.length; i += 1) {
+                    uint updatedAddressAmount = depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc);
+                    depositorInfoPre[depositorAddressPre[i]] = updatedAddressAmount;
+                }
+            }
+            totalPre = ethAmount;
         }
     }
 }
