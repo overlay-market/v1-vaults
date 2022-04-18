@@ -20,14 +20,18 @@ contract EthBasisTrade {
     ISwapRouter public immutable swapRouter;
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
+    address public immutable WETH9;
+    address public immutable pool;
     
-    // tracking info before contract goes long
+    // tracking info of depositors who depostied
+    // before contract went long
     uint public totalPre;
     address[] public depositorAddressPre;
     mapping (address => uint) public depositorInfoPre;
     uint public depositorIdPre;
 
-    // tracking info after contract goes long
+    // tracking info of depositors who depostied
+    // after contract went long
     address[] public depositorAddressPost;
     struct dInfoPostStruct {
         uint256 amount;
@@ -35,12 +39,11 @@ contract EthBasisTrade {
     }
     mapping (address => dInfoPostStruct) public depositorInfoPost;
 
-    address public WETH9;
-    address public pool;
-    uint24 public constant poolFee = 3000;
     ///@dev when currState = 0, contract holds spot WETH only
     ///@dev when currState = 1, contract holds a long on ETH/OVL
     uint256 public currState = 0; // TODO: change to enum
+    
+    uint24 public constant poolFee = 3000;
 
     constructor(
         ISwapRouter _swapRouter,
