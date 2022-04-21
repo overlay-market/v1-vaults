@@ -16,19 +16,19 @@ import "./libraries/uniswapv3-core/TickMath.sol";
 
 contract EthBasisTrade {
     using FixedPoint for uint256;
-    
+
     ISwapRouter public immutable swapRouter;
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
     address public immutable WETH9;
     address public immutable pool;
-    
+
     // tracking info of depositors who depostied
     // before contract went long
-    uint public totalPre;
+    uint256 public totalPre;
     address[] public depositorAddressPre;
-    mapping (address => uint) public depositorInfoPre;
-    uint public depositorIdPre;
+    mapping(address => uint256) public depositorInfoPre;
+    uint256 public depositorIdPre;
 
     // tracking info of depositors who depostied
     // after contract went long
@@ -37,17 +37,17 @@ contract EthBasisTrade {
         uint256 amount;
         uint256 posId;
     }
-    mapping (address => dInfoPostStruct) public depositorInfoPost;
+    mapping(address => dInfoPostStruct) public depositorInfoPost;
 
     /// @dev when currState = 0, contract holds spot WETH only
     /// @dev when currState = 1, contract holds a long on ETH/OVL
     uint256 public currState = 0; // TODO: change to enum
-    
+
     uint24 public constant poolFee = 3000;
 
     /// @param toState the state to which the contract transitioned
     /// @param amount the amount of weth going long or getting unwound
-    event Update(uint toState, uint amount);
+    event Update(uint256 toState, uint256 amount);
 
     constructor(
         ISwapRouter _swapRouter,
@@ -93,7 +93,7 @@ contract EthBasisTrade {
             tick = tick_curr - 200;
         }
         uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
-        // Calculate quoteAmount with better precision if 
+        // Calculate quoteAmount with better precision if
         // it doesn't overflow when multiplied by itself
         if (sqrtRatioX96 <= type(uint128).max) {
             uint256 ratioX192 = uint256(sqrtRatioX96) * sqrtRatioX96;
@@ -108,10 +108,10 @@ contract EthBasisTrade {
         }
     }
 
-    function swapExactInputSingle(
-        uint256 amountIn,
-        bool toEth
-    ) public returns (uint256 amountOut) {
+    function swapExactInputSingle(uint256 amountIn, bool toEth)
+        public
+        returns (uint256 amountOut)
+    {
         address tokenIn;
         address tokenOut;
 
@@ -122,10 +122,7 @@ contract EthBasisTrade {
             tokenIn = WETH9;
             tokenOut = address(ovl);
         }
-        uint256 amountOutMinimum = getQuoteAtTick(toEth,
-                                                  uint128(amountIn),
-                                                  tokenIn,
-                                                  tokenOut);
+        uint256 amountOutMinimum = getQuoteAtTick(toEth, uint128(amountIn), tokenIn, tokenOut);
 
         TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
@@ -150,8 +147,7 @@ contract EthBasisTrade {
         bool isLong,
         uint256 priceLimit
     ) public returns (uint256 positionId_) {
-
-        TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral+fee);
+        TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
         positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
     }
 
@@ -164,39 +160,39 @@ contract EthBasisTrade {
     }
 
     /// @notice collateral is equal to notional size since leverage is always 1 for basis trade
-    function getOverlayTradingFee(
-        uint totalSize
-        ) public view returns (uint collateral, uint fee) {
+    function getOverlayTradingFee(uint256 totalSize)
+        public
+        view
+        returns (uint256 collateral, uint256 fee)
+    {
         collateral = totalSize.divDown(1e18 + ovlMarket.params(11));
         fee = collateral.mulUp(ovlMarket.params(11));
-        }
+    }
 
     function update(bool wethToLong) external {
         if (wethToLong) {
             currState = 1;
-            uint ovlTotalPre = swapExactInputSingle(totalPre, false);
-            (uint collateral, uint fee) = getOverlayTradingFee(ovlTotalPre);
-            depositorIdPre = buildOvlPosition(collateral,
-                                              fee,
-                                              1e18,
-                                              true,
-                                              10e18); // TODO: fix price limit    
+            uint256 ovlTotalPre = swapExactInputSingle(totalPre, false);
+            (uint256 collateral, uint256 fee) = getOverlayTradingFee(ovlTotalPre);
+            depositorIdPre = buildOvlPosition(collateral, fee, 1e18, true, 10e18); // TODO: fix price limit
         } else {
-            uint deltaPerc;
+            uint256 deltaPerc;
             currState = 0;
-            uint ovlBalancePreUnwind = ovl.balanceOf(address(this));
+            uint256 ovlBalancePreUnwind = ovl.balanceOf(address(this));
             unwindOvlPosition(depositorIdPre, 1e18, 0); // TODO: fix price limit
-            uint ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
-            uint ethAmount = swapExactInputSingle(ovlAmount, true);
+            uint256 ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+            uint256 ethAmount = swapExactInputSingle(ovlAmount, true);
             if (ethAmount >= totalPre) {
-                uint delta = ethAmount - totalPre;
+                uint256 delta = ethAmount - totalPre;
                 deltaPerc = delta.divDown(totalPre) + 1e18; // TODO: better name reqd since 1e18 added
             } else {
-                uint delta = totalPre - ethAmount;
+                uint256 delta = totalPre - ethAmount;
                 deltaPerc = 1e18 - delta.divDown(totalPre); // TODO: better name reqd since 1e18 added
             }
-            for (uint i = 0; i < depositorAddressPre.length; i += 1) {
-                depositorInfoPre[depositorAddressPre[i]] = depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc) - 2; // TODO: `-2` to avoid rounding issues - need to fix this
+            for (uint256 i = 0; i < depositorAddressPre.length; i += 1) {
+                depositorInfoPre[depositorAddressPre[i]] =
+                    depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc) -
+                    2; // TODO: `-2` to avoid rounding issues - need to fix this
             }
             totalPre = ethAmount;
         }
