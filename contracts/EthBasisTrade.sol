@@ -39,11 +39,15 @@ contract EthBasisTrade {
     }
     mapping (address => dInfoPostStruct) public depositorInfoPost;
 
-    ///@dev when currState = 0, contract holds spot WETH only
-    ///@dev when currState = 1, contract holds a long on ETH/OVL
+    /// @dev when currState = 0, contract holds spot WETH only
+    /// @dev when currState = 1, contract holds a long on ETH/OVL
     uint256 public currState = 0; // TODO: change to enum
     
     uint24 public constant poolFee = 3000;
+
+    /// @param toState the state to which the contract transitioned
+    /// @param amount the amount of weth going long or getting unwound
+    event Update(uint toState, uint amount);
 
     constructor(
         ISwapRouter _swapRouter,
@@ -176,8 +180,9 @@ contract EthBasisTrade {
                                               fee,
                                               1e18,
                                               true,
-                                              10e18); // TODO: fix price limit
+                                              10e18); // TODO: fix price limit    
         } else {
+            uint deltaPerc;
             currState = 0;
             uint ovlBalancePreUnwind = ovl.balanceOf(address(this));
             unwindOvlPosition(depositorIdPre, 1e18, 0); // TODO: fix price limit
@@ -185,18 +190,13 @@ contract EthBasisTrade {
             uint ethAmount = swapExactInputSingle(ovlAmount, true);
             if (ethAmount >= totalPre) {
                 uint delta = ethAmount - totalPre;
-                uint deltaPerc = delta.divUp(totalPre) + 1e18; // TODO: better name reqd since 1e18 added
-                for (uint i = 0; i < depositorAddressPre.length; i += 1) {
-                    uint updatedAddressAmount = depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc);
-                    depositorInfoPre[depositorAddressPre[i]] = updatedAddressAmount;
-                }
+                deltaPerc = delta.divDown(totalPre) + 1e18; // TODO: better name reqd since 1e18 added
             } else {
                 uint delta = totalPre - ethAmount;
-                uint deltaPerc = 1e18 - delta.divUp(totalPre); // TODO: better name reqd since 1e18 added
-                for (uint i = 0; i < depositorAddressPre.length; i += 1) {
-                    uint updatedAddressAmount = depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc);
-                    depositorInfoPre[depositorAddressPre[i]] = updatedAddressAmount;
-                }
+                deltaPerc = 1e18 - delta.divDown(totalPre); // TODO: better name reqd since 1e18 added
+            }
+            for (uint i = 0; i < depositorAddressPre.length; i += 1) {
+                depositorInfoPre[depositorAddressPre[i]] = depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc) - 2; // TODO: `-2` to avoid rounding issues - need to fix this
             }
             totalPre = ethAmount;
         }
