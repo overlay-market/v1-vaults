@@ -73,7 +73,7 @@ contract EthBasisTrade {
         } else {
             depositorAddressPost.push(msg.sender);
             depositorInfoPost[msg.sender].amount = amountIn;
-            // long weth/ovl by amountIn here
+            updatePost(amountIn);
         }
     }
 
@@ -176,12 +176,16 @@ contract EthBasisTrade {
             (uint256 collateral, uint256 fee) = getOverlayTradingFee(ovlTotalPre);
             depositorIdPre = buildOvlPosition(collateral, fee, 1e18, true, 10e18); // TODO: fix price limit
         } else {
-            uint256 deltaPerc;
             currState = 0;
-            uint256 ovlBalancePreUnwind = ovl.balanceOf(address(this));
+            uint256 deltaPerc;
+            uint256 i;
+            uint256 ovlBalancePreUnwind;
+            uint256 ovlAmount;
+            uint256 ethAmount;
+            ovlBalancePreUnwind = ovl.balanceOf(address(this));
             unwindOvlPosition(depositorIdPre, 1e18, 0); // TODO: fix price limit
-            uint256 ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
-            uint256 ethAmount = swapExactInputSingle(ovlAmount, true);
+            ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+            ethAmount = swapExactInputSingle(ovlAmount, true);
             if (ethAmount >= totalPre) {
                 uint256 delta = ethAmount - totalPre;
                 deltaPerc = delta.divDown(totalPre) + 1e18; // TODO: better name reqd since 1e18 added
@@ -189,12 +193,28 @@ contract EthBasisTrade {
                 uint256 delta = totalPre - ethAmount;
                 deltaPerc = 1e18 - delta.divDown(totalPre); // TODO: better name reqd since 1e18 added
             }
-            for (uint256 i = 0; i < depositorAddressPre.length; i += 1) {
+            for (i = 0; i < depositorAddressPre.length; i += 1) {
                 depositorInfoPre[depositorAddressPre[i]] =
                     depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc) -
                     2; // TODO: `-2` to avoid rounding issues - need to fix this
             }
             totalPre = ethAmount;
+
+            for (i = 0; i < depositorAddressPost.length; i += 1) {
+                ovlBalancePreUnwind = ovl.balanceOf(address(this));
+                unwindOvlPosition(depositorInfoPost[depositorAddressPost[i]].posId , 1e18, 0); // TODO: fix price limit
+                ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+                ethAmount = swapExactInputSingle(ovlAmount, true);
+                totalPre = totalPre + ethAmount;
+                depositorAddressPre.push(depositorAddressPost[i]);
+                depositorInfoPre[depositorAddressPost[i]] = ethAmount;
+            }
         }
+    }
+
+    function updatePost(uint256 amount) internal {
+        uint256 ovlTotalPre = swapExactInputSingle(amount, false);
+        (uint256 collateral, uint256 fee) = getOverlayTradingFee(ovlTotalPre);
+        depositorInfoPost[msg.sender].posId = buildOvlPosition(collateral, fee, 1e18, true, 10e18); // TODO: fix price limit
     }
 }
