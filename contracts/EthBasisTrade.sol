@@ -195,7 +195,7 @@ contract EthBasisTrade {
             }
             for (i = 0; i < depositorAddressPre.length; i += 1) {
                 depositorInfoPre[depositorAddressPre[i]] =
-                    depositorInfoPre[depositorAddressPre[i]].mulUp(deltaPerc) -
+                    depositorInfoPre[depositorAddressPre[i]].mulDown(deltaPerc) -
                     2; // TODO: `-2` to avoid rounding issues - need to fix this
             }
             totalPre = ethAmount;
@@ -217,4 +217,34 @@ contract EthBasisTrade {
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(ovlTotalPre);
         depositorInfoPost[msg.sender].posId = buildOvlPosition(collateral, fee, 1e18, true, 10e18); // TODO: fix price limit
     }
+
+    function withdraw(uint256 percentage) public {
+        if (depositorInfoPre[msg.sender] > 0) _withdraw(percentage, true);
+        if (depositorInfoPost[msg.sender].amount > 0) _withdraw(percentage, false);
+    }
+
+    function _withdraw(uint256 percentage, bool isPre) internal{
+        uint256 ovlBalancePreUnwind;
+        uint256 ovlAmount;
+        uint256 ethAmount;
+        if (isPre) {
+            uint256 depShare = depositorInfoPre[msg.sender].divDown(totalPre);
+            uint256 withdrawShare = depShare.mulDown(percentage);
+            ovlBalancePreUnwind = ovl.balanceOf(address(this));
+            unwindOvlPosition(depositorIdPre , withdrawShare, 0); // TODO: fix price limit
+            ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+            ethAmount = swapExactInputSingle(ovlAmount, true);
+            depositorInfoPre[msg.sender] = depositorInfoPre[msg.sender].mulDown(percentage);
+            TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
+            IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
+        } else {
+            ovlBalancePreUnwind = ovl.balanceOf(address(this));
+            unwindOvlPosition(depositorInfoPost[msg.sender].posId , percentage, 0); // TODO: fix price limit
+            ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+            ethAmount = swapExactInputSingle(ovlAmount, true);
+            TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
+            IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
+        }
+    }
 }
+
