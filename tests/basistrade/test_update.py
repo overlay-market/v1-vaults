@@ -59,7 +59,6 @@ def test_update_sets_pre_post_variables(eth_basis_trade, amount, ovl, weth, alic
 )
 def test_update_splits_pnl(eth_basis_trade,
                            ovl,
-                           univ3_oe_pool,
                            market,
                            weth,
                            alice,

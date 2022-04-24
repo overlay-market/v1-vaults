@@ -122,7 +122,8 @@ contract EthBasisTrade {
             tokenIn = WETH9;
             tokenOut = address(ovl);
         }
-        uint256 amountOutMinimum = getQuoteAtTick(toEth, uint128(amountIn), tokenIn, tokenOut);
+        uint256 amountOutFactor = getQuoteAtTick(toEth, 1e18, tokenIn, tokenOut);
+        uint256 amountOutMinimum = FullMath.mulDiv(amountOutFactor, amountIn, 1e18);
 
         TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
@@ -186,17 +187,19 @@ contract EthBasisTrade {
             unwindOvlPosition(depositorIdPre, 1e18, 0); // TODO: fix price limit
             ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
             ethAmount = swapExactInputSingle(ovlAmount, true);
-            if (ethAmount >= totalPre) {
-                uint256 delta = ethAmount - totalPre;
+            // TODO: subtracting 10 wei for each address. check if right way to avoid rounding issues.
+            // if yes, then write a function to use this dust when enough accumulated
+            uint256 amountToSplit = ethAmount - (10 * depositorAddressPre.length);
+            if (amountToSplit >= totalPre) {
+                uint256 delta = amountToSplit - totalPre;
                 deltaPerc = delta.divDown(totalPre) + 1e18; // TODO: better name reqd since 1e18 added
             } else {
-                uint256 delta = totalPre - ethAmount;
+                uint256 delta = totalPre - amountToSplit;
                 deltaPerc = 1e18 - delta.divDown(totalPre); // TODO: better name reqd since 1e18 added
             }
             for (i = 0; i < depositorAddressPre.length; i += 1) {
                 depositorInfoPre[depositorAddressPre[i]] =
-                    depositorInfoPre[depositorAddressPre[i]].mulDown(deltaPerc) -
-                    2; // TODO: `-2` to avoid rounding issues - need to fix this
+                    depositorInfoPre[depositorAddressPre[i]].mulDown(deltaPerc);
             }
             totalPre = ethAmount;
 
