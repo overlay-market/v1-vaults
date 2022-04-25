@@ -144,12 +144,10 @@ contract EthBasisTrade {
     function buildOvlPosition(
         uint256 collateral,
         uint256 fee,
-        uint256 leverage,
-        bool isLong,
         uint256 priceLimit
     ) public returns (uint256 positionId_) {
         TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
-        positionId_ = ovlMarket.build(collateral, leverage, isLong, priceLimit);
+        positionId_ = ovlMarket.build(collateral, 1e18, true, priceLimit);
     }
 
     function unwindOvlPosition(
@@ -175,7 +173,7 @@ contract EthBasisTrade {
             currState = 1;
             uint256 ovlTotalPre = swapExactInputSingle(totalPre, false);
             (uint256 collateral, uint256 fee) = getOverlayTradingFee(ovlTotalPre);
-            depositorIdPre = buildOvlPosition(collateral, fee, 1e18, true, 10e18); // TODO: fix price limit
+            depositorIdPre = buildOvlPosition(collateral, fee, 10e18); // TODO: fix price limit
         } else {
             currState = 0;
             uint256 deltaPerc;
@@ -218,7 +216,7 @@ contract EthBasisTrade {
     function updatePost(uint256 amount) internal {
         uint256 ovlTotalPre = swapExactInputSingle(amount, false);
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(ovlTotalPre);
-        depositorInfoPost[msg.sender].posId = buildOvlPosition(collateral, fee, 1e18, true, 10e18); // TODO: fix price limit
+        depositorInfoPost[msg.sender].posId = buildOvlPosition(collateral, fee, 10e18); // TODO: fix price limit
     }
 
     function withdraw(uint256 percentage) public {
@@ -248,6 +246,10 @@ contract EthBasisTrade {
             TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
             IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
         }
+    }
+
+    function getDepositorAddressPreLength() public view returns (uint256) {
+        return depositorAddressPre.length;
     }
 }
 
