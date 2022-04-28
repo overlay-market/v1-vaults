@@ -2,6 +2,8 @@ from brownie_tokens import MintableForkToken
 from brownie.test import given, strategy
 
 
+# TODO: min deposit should be higher than min amount allowed on overlay
+
 @given(
     amount=strategy('uint256', min_value=1, max_value=100000e18)
 )
