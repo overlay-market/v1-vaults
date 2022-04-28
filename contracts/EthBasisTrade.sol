@@ -16,6 +16,7 @@ import "./libraries/uniswapv3-core/TickMath.sol";
 
 contract EthBasisTrade {
     using FixedPoint for uint256;
+    uint256 public immutable ONE = 1e18;
 
     ISwapRouter public immutable swapRouter;
     IOverlayV1Token public immutable ovl;
@@ -27,17 +28,22 @@ contract EthBasisTrade {
     // before contract went long
     uint256 public totalPre;
     address[] public depositorAddressPre;
-    mapping(address => uint256) public depositorInfoPre;
+    struct dInfoPreStruct {
+        uint256 amount;
+        uint256 arrIdx;
+    }
+    mapping(address => dInfoPreStruct) public depositorInfoPre;
     uint256 public depositorIdPre;
 
-    // tracking info of depositors who depostied
+    // tracking info of depositors who deposited
     // after contract went long
     address[] public depositorAddressPost;
+    mapping (address => uint256) depositorAddressPostIdx;
     struct dInfoPostStruct {
         uint256 amount;
         uint256 posId;
     }
-    mapping(address => dInfoPostStruct) public depositorInfoPost;
+    mapping(address => dInfoPostStruct[]) public depositorInfoPost;
 
     /// @dev when currState = 0, contract holds spot WETH only
     /// @dev when currState = 1, contract holds a long on ETH/OVL
@@ -68,11 +74,14 @@ contract EthBasisTrade {
         IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
         if (currState == 0) {
             totalPre = totalPre + amountIn;
-            depositorAddressPre.push(msg.sender);
-            depositorInfoPre[msg.sender] = amountIn;
+            if (depositorInfoPre[msg.sender].amount > 0) {
+                depositorInfoPre[msg.sender].amount += amountIn;
+            } else {
+                depositorAddressPre.push(msg.sender);
+                depositorInfoPre[msg.sender].arrIdx = depositorAddressPre.length - 1;
+                depositorInfoPre[msg.sender].amount = amountIn;
+            }
         } else {
-            depositorAddressPost.push(msg.sender);
-            depositorInfoPost[msg.sender].amount = amountIn;
             updatePost(amountIn);
         }
     }
@@ -178,6 +187,7 @@ contract EthBasisTrade {
             currState = 0;
             uint256 deltaPerc;
             uint256 i;
+            uint256 j;
             uint256 ovlBalancePreUnwind;
             uint256 ovlAmount;
             uint256 ethAmount;
@@ -196,60 +206,105 @@ contract EthBasisTrade {
                 deltaPerc = 1e18 - delta.divDown(totalPre); // TODO: better name reqd since 1e18 added
             }
             for (i = 0; i < depositorAddressPre.length; i += 1) {
-                depositorInfoPre[depositorAddressPre[i]] =
-                    depositorInfoPre[depositorAddressPre[i]].mulDown(deltaPerc);
+                depositorInfoPre[depositorAddressPre[i]].amount =
+                    depositorInfoPre[depositorAddressPre[i]].amount.mulDown(deltaPerc);
             }
             totalPre = ethAmount;
 
             for (i = 0; i < depositorAddressPost.length; i += 1) {
-                ovlBalancePreUnwind = ovl.balanceOf(address(this));
-                unwindOvlPosition(depositorInfoPost[depositorAddressPost[i]].posId , 1e18, 0); // TODO: fix price limit
-                ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
-                ethAmount = swapExactInputSingle(ovlAmount, true);
-                totalPre = totalPre + ethAmount;
+                for (j = 0; j < depositorInfoPost[depositorAddressPost[i]].length; j += 1) {
+                    ovlBalancePreUnwind = ovl.balanceOf(address(this));
+                    unwindOvlPosition(depositorInfoPost[depositorAddressPost[i]][j].posId , 1e18, 0); // TODO: fix price limit
+                    ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+                    ethAmount = swapExactInputSingle(ovlAmount, true);
+                    totalPre += ethAmount;
+                    depositorInfoPre[depositorAddressPost[i]].amount += ethAmount;
+                }
                 depositorAddressPre.push(depositorAddressPost[i]);
-                depositorInfoPre[depositorAddressPost[i]] = ethAmount;
             }
         }
     }
 
     function updatePost(uint256 amount) internal {
+        depositorAddressPost.push(msg.sender);
+        depositorAddressPostIdx[msg.sender] = depositorAddressPost.length - 1;
+        dInfoPostStruct memory dInfo;
+        dInfo.amount = amount;
         uint256 ovlTotalPre = swapExactInputSingle(amount, false);
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(ovlTotalPre);
-        depositorInfoPost[msg.sender].posId = buildOvlPosition(collateral, fee, 10e18); // TODO: fix price limit
+        dInfo.posId = buildOvlPosition(collateral, fee, 10e18); // TODO: fix price limit
+        depositorInfoPost[msg.sender].push(dInfo);
     }
 
-    function withdraw(uint256 percentage) public {
-        if (depositorInfoPre[msg.sender] > 0) _withdraw(percentage, true);
-        if (depositorInfoPost[msg.sender].amount > 0) _withdraw(percentage, false);
-    }
 
-    function _withdraw(uint256 percentage, bool isPre) internal{
-        uint256 ovlBalancePreUnwind;
-        uint256 ovlAmount;
+    function withdrawIdle(uint256 percentage) public returns (uint256) {
+        require(currState == 0, "!idle");
+        require(percentage <= ONE, ">100%");
+        
         uint256 ethAmount;
-        if (isPre) {
-            uint256 depShare = depositorInfoPre[msg.sender].divDown(totalPre);
-            uint256 withdrawShare = depShare.mulDown(percentage);
-            ovlBalancePreUnwind = ovl.balanceOf(address(this));
-            unwindOvlPosition(depositorIdPre , withdrawShare, 0); // TODO: fix price limit
-            ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
-            ethAmount = swapExactInputSingle(ovlAmount, true);
-            depositorInfoPre[msg.sender] = depositorInfoPre[msg.sender].mulDown(percentage);
-            TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
-            IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
-        } else {
-            ovlBalancePreUnwind = ovl.balanceOf(address(this));
-            unwindOvlPosition(depositorInfoPost[msg.sender].posId , percentage, 0); // TODO: fix price limit
-            ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
-            ethAmount = swapExactInputSingle(ovlAmount, true);
-            TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
-            IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
+        ethAmount = depositorInfoPre[msg.sender].amount.mulDown(percentage);
+        depositorInfoPre[msg.sender].amount = depositorInfoPre[msg.sender].amount - ethAmount;
+        if (depositorInfoPre[msg.sender].amount < 10) {
+            depositorInfoPre[msg.sender].amount = 0;
+            depositorInfoPre[depositorAddressPre[depositorAddressPre.length - 1]].arrIdx = depositorInfoPre[msg.sender].arrIdx;
+            depositorAddressPre[depositorInfoPre[msg.sender].arrIdx] = depositorAddressPre[depositorAddressPre.length - 1];
+            depositorAddressPre.pop();
+            depositorInfoPre[msg.sender].arrIdx = 0;
         }
+        TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
+        IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
+        return ethAmount;
+    }
+
+    function withdrawLongPreDepositor(uint256 percentage) public returns (uint256 ethAmount) {
+        require(currState == 1, "!long");
+        require(percentage <= ONE, ">100%");
+        require(depositorInfoPre[msg.sender].amount > 0, "!deposit");
+        
+        uint256 depShare = depositorInfoPre[msg.sender].amount.divDown(totalPre);
+        uint256 withdrawShare = depShare.mulDown(percentage);
+        depositorInfoPre[msg.sender].amount = depositorInfoPre[msg.sender].amount.mulDown(ONE - percentage); // TODO: check rounding issues
+        if (percentage == ONE) {
+            depositorInfoPre[msg.sender].amount = 0;
+            depositorInfoPre[depositorAddressPre[depositorAddressPre.length - 1]].arrIdx = depositorInfoPre[msg.sender].arrIdx;
+            depositorAddressPre[depositorInfoPre[msg.sender].arrIdx] = depositorAddressPre[depositorAddressPre.length - 1];
+            depositorAddressPre.pop();
+            depositorInfoPre[msg.sender].arrIdx = 0;
+        }
+        ethAmount = _withdrawLong(depositorIdPre, withdrawShare);
+    }
+    
+    function withdrawLongPostDepositor(uint256 percentage, uint256 idx) public returns (uint256 ethAmount) {
+        require(currState == 1, "!long");
+        require(percentage <= ONE, ">100%");
+        require(depositorInfoPost[msg.sender][idx].amount > 0, "!deposit");
+        
+        uint256 pos = depositorInfoPost[msg.sender][idx].posId;
+        
+        if (percentage == ONE) {
+            depositorAddressPostIdx[depositorAddressPost[depositorAddressPost.length - 1]] = depositorAddressPostIdx[msg.sender];
+            depositorAddressPost[depositorAddressPostIdx[msg.sender]] = depositorAddressPost[depositorAddressPost.length - 1];
+            depositorAddressPost.pop();
+            depositorAddressPostIdx[msg.sender] = 0;
+            
+            depositorInfoPost[msg.sender][idx] = depositorInfoPost[msg.sender][depositorInfoPost[msg.sender].length - 1];
+            depositorInfoPost[msg.sender].pop();
+        }
+        ethAmount = _withdrawLong(pos, percentage);
+    }
+
+    function _withdrawLong(uint256 pos, uint256 percentage) internal returns (uint256 ethAmount) {
+        require(percentage <= ONE, ">100%");
+
+        uint256 ovlBalancePreUnwind = ovl.balanceOf(address(this));
+        unwindOvlPosition(pos, percentage, 0); // TODO: fix price limit
+        uint256 ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
+        ethAmount = swapExactInputSingle(ovlAmount, true);
+        TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
+        IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
     }
 
     function getDepositorAddressPreLength() public view returns (uint256) {
         return depositorAddressPre.length;
     }
 }
-
