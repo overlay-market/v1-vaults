@@ -3,6 +3,14 @@ from brownie_tokens import MintableForkToken
 from brownie.test import given, strategy
 import pytest
 
+
+# NOTE: Tests passing with isolation fixture
+# TODO: Fix tests to pass even without isolation fixture (?)
+@pytest.fixture(autouse=True)
+def isolation(fn_isolation):
+    pass
+
+
 # `amount` range of values:
 # min value: based on minCollateral setting in factory
 # max value: based on spot pool liquidity as set in conftest.py
@@ -204,8 +212,6 @@ def test_update_splits_pnl_for_deposits_made_post_update(eth_basis_trade,
     assert og_deposit_rando2 < eth_basis_trade.depositorInfoPre(rando2)
     assert og_deposit_alice < eth_basis_trade.depositorInfoPre(alice)
     assert og_deposit_bob < eth_basis_trade.depositorInfoPre(bob)
-
-# def test_update_splits_pnl_after_withdraw():
 
 # def test_update_builds_and_unwinds_expected_amounts():
 
