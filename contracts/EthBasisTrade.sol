@@ -147,22 +147,39 @@ contract EthBasisTrade {
         fee = collateral.mulUp(ovlMarket.params(11));
     }
 
-    function update() public view returns (int256) {
-        uint256 ethAmount;
+    function update() external {
         uint256 ovlAmount;
         int256 fundingRate = ovlState.fundingRate(ovlMarket.feed());
         if (fundingRate < 0) {
             require(currState == 0, "Already long");
             currState = 1;
             uint256 ethAmount = IERC20(WETH9).balanceOf(address(this));
-            uint256 ovlAmount = swapExactInputSingle(ethAmount, false);
+            ovlAmount = swapExactInputSingle(ethAmount, false);
             posId = buildOvlPosition(ovlAmount, 10e18);
         } else {
             require(currState == 1, "Already idle");
             currState = 0;
-            uint256 ovlBalancePreUnwind = ovl.balanceOf(address(this));
             unwindOvlPosition(posId, 1e18, 0);
+            ovlAmount = ovl.balanceOf(address(this));
             swapExactInputSingle(ovlAmount, true);
         }
+    }
+
+    function withdraw() external {
+        uint256 ethAmount;
+        if (currState == 0) {
+            ethAmount = IERC20(WETH9).balanceOf(address(this));
+            _withdraw(ethAmount);
+        } else {
+            unwindOvlPosition(posId, 1e18, 0);
+            uint256 ovlAmount = ovl.balanceOf(address(this));
+            ethAmount = swapExactInputSingle(ovlAmount, true);
+            _withdraw(ethAmount);
+        }
+    }
+
+    function _withdraw(uint256 ethAmount) internal {
+        TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
+        IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
     }
 }
