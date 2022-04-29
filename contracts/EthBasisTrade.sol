@@ -24,7 +24,7 @@ contract EthBasisTrade {
     address public immutable WETH9;
     address public immutable pool;
 
-    // tracking info of depositors who depostied
+    // tracking info of depositors who deposited
     // before contract went long
     uint256 public totalPre;
     address[] public depositorAddressPre;
@@ -49,11 +49,10 @@ contract EthBasisTrade {
     /// @dev when currState = 1, contract holds a long on ETH/OVL
     uint256 public currState = 0; // TODO: change to enum
 
-    uint24 public constant poolFee = 3000;
+    uint24 public constant poolFee = 3000; // TODO: extract from pool
 
-    /// @param toState the state to which the contract transitioned
-    /// @param amount the amount of weth going long or getting unwound
     event Update(uint256 toState, uint256 amount);
+    event WithdrawIdle(uint256 amount);
 
     constructor(
         ISwapRouter _swapRouter,
@@ -243,6 +242,7 @@ contract EthBasisTrade {
         
         uint256 ethAmount;
         ethAmount = depositorInfoPre[msg.sender].amount.mulDown(percentage);
+        totalPre -= ethAmount;
         depositorInfoPre[msg.sender].amount = depositorInfoPre[msg.sender].amount - ethAmount;
         if (depositorInfoPre[msg.sender].amount < 10) {
             depositorInfoPre[msg.sender].amount = 0;
@@ -253,6 +253,7 @@ contract EthBasisTrade {
         }
         TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
         IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
+        emit WithdrawIdle(ethAmount);
         return ethAmount;
     }
 
@@ -295,7 +296,6 @@ contract EthBasisTrade {
 
     function _withdrawLong(uint256 pos, uint256 percentage) internal returns (uint256 ethAmount) {
         require(percentage <= ONE, ">100%");
-
         uint256 ovlBalancePreUnwind = ovl.balanceOf(address(this));
         unwindOvlPosition(pos, percentage, 0); // TODO: fix price limit
         uint256 ovlAmount = ovl.balanceOf(address(this)) - ovlBalancePreUnwind;
