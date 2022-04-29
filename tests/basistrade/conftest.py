@@ -10,6 +10,11 @@ def ovl_v1_core(pm):
 
 
 @pytest.fixture(scope="module")
+def ovl_v1_periphery(pm):
+    return pm("overlay-market/v1-periphery@1.0.0-beta.3")
+
+
+@pytest.fixture(scope="module")
 def gov(accounts):
     yield accounts[0]
 
@@ -74,11 +79,14 @@ def ovl(create_token):
     yield create_token()
 
 
-def load_contract(address):
-    try:
-        return Contract(address)
-    except ValueError:
+def load_contract(address, load=False):
+    if load:
         return Contract.from_explorer(address)
+    else:
+        try:
+            return Contract(address)
+        except ValueError:
+            return Contract.from_explorer(address)
 
 
 @pytest.fixture(scope="module")
@@ -187,7 +195,7 @@ def mint_router(gov):
 
 @pytest.fixture(scope="module")
 def univ3_swap_router():
-    yield load_contract("0xE592427A0AEce92De3Edee1F18E0157C05861564")
+    yield load_contract("0xE592427A0AEce92De3Edee1F18E0157C05861564", True)
 
 
 @pytest.fixture(scope="module", params=[(600, 3600, 300, 15)])
@@ -300,18 +308,32 @@ def market(ovl_v1_core, gov, feed, factory):
 
 
 @pytest.fixture(scope="module")
+def create_state(alice, ovl_v1_periphery):
+    def create_state(factory, deployer=alice):
+        state = deployer.deploy(ovl_v1_periphery.OverlayV1State, factory)
+        return state
+    yield create_state
+
+
+@pytest.fixture(scope="module")
+def state(create_state, factory):
+    yield create_state(factory)
+
+
+@pytest.fixture(scope="module")
 def create_eth_basis_trade(univ3_swap_router, weth, ovl,
-                           univ3_oe_pool, market, gov):
+                           univ3_oe_pool, market, gov, state):
     
     def create_eth_basis_trade(
                         swap_router=univ3_swap_router.address,
                         weth=weth.address,
                         ovl=ovl.address,
                         pool=univ3_oe_pool.address,
-                        mrkt=market.address
+                        mrkt=market.address,
+                        st=state.address
                         ):
         basistrade = gov.deploy(EthBasisTrade, swap_router, 
-                                weth, ovl, pool, mrkt)
+                                weth, ovl, pool, mrkt, st)
         return basistrade
     yield create_eth_basis_trade
 
