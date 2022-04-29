@@ -6,9 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolImmutables.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Token.sol";
 import "@overlay/v1-core/contracts/libraries/FixedPoint.sol";
+import "@overlay/v1-periphery/contracts/interfaces/IOverlayV1State.sol";
 
 // forks of uniswap libraries for solidity^0.8.10
 import "@overlay/v1-core/contracts/libraries/uniswap/v3-core/FullMath.sol";
@@ -21,6 +23,7 @@ contract EthBasisTrade {
     ISwapRouter public immutable swapRouter;
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
+    IOverlayV1State public immutable ovlState;
     address public immutable WETH9;
     address public immutable pool;
 
@@ -35,30 +38,20 @@ contract EthBasisTrade {
         address _WETH9,
         address _ovl,
         address _pool,
-        address _ovlMarket
+        address _ovlMarket,
+        address _ovlState
     ) {
         swapRouter = _swapRouter;
         WETH9 = _WETH9;
         ovl = IOverlayV1Token(_ovl);
         pool = _pool;
         ovlMarket = IOverlayV1Market(_ovlMarket);
+        ovlState = IOverlayV1State(_ovlState);
     }
 
     /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
     function depositWeth(uint256 amountIn) public {
         IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
-        if (currState == 0) {
-            totalPre = totalPre + amountIn;
-            if (depositorInfoPre[msg.sender].amount > 0) {
-                depositorInfoPre[msg.sender].amount += amountIn;
-            } else {
-                depositorAddressPre.push(msg.sender);
-                depositorInfoPre[msg.sender].arrIdx = depositorAddressPre.length - 1;
-                depositorInfoPre[msg.sender].amount = amountIn;
-            }
-        } else {
-            updatePost(amountIn);
-        }
     }
 
     /// @dev similar to getQuoteAtTick in uniswap v3
@@ -69,12 +62,12 @@ contract EthBasisTrade {
         address quoteToken
     ) public view returns (uint256 quoteAmount) {
         int24 tick;
-        int24 tick_curr;
-        (, tick_curr, , , , , ) = IUniswapV3Pool(pool).slot0();
+        int24 tickCurr;
+        (, tickCurr, , , , , ) = IUniswapV3Pool(pool).slot0();
         if (toEth == true) {
-            tick = tick_curr + 200;
+            tick = tickCurr + 200;
         } else {
-            tick = tick_curr - 200;
+            tick = tickCurr - 200;
         }
         uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
         // Calculate quoteAmount with better precision if
@@ -114,7 +107,7 @@ contract EthBasisTrade {
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: tokenIn,
             tokenOut: tokenOut,
-            fee: poolFee,
+            fee: IUniswapV3PoolImmutables(pool).fee(),
             recipient: address(this),
             deadline: block.timestamp + 120,
             amountIn: amountIn,
@@ -126,10 +119,10 @@ contract EthBasisTrade {
     }
 
     function buildOvlPosition(
-        uint256 collateral,
-        uint256 fee,
+        uint256 size,
         uint256 priceLimit
     ) public returns (uint256 positionId_) {
+        (uint256 collateral, uint256 fee) = getOverlayTradingFee(size);
         TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
         positionId_ = ovlMarket.build(collateral, 1e18, true, priceLimit);
     }
@@ -150,5 +143,11 @@ contract EthBasisTrade {
     {
         collateral = totalSize.divDown(1e18 + ovlMarket.params(11));
         fee = collateral.mulUp(ovlMarket.params(11));
+    }
+
+    function update() public view returns (int256) {
+        // uint256 wethAmount = IERC20(WETH9).balanceOf(address(this));
+        // uint256 ovlTotalPre = swapExactInputSingle(wethAmount, false);
+        return ovlState.fundingRate(ovlMarket.feed());
     }
 }
