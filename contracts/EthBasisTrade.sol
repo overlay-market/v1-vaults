@@ -127,10 +127,10 @@ contract EthBasisTrade is AccessControl {
         amountOut = swapRouter.exactInputSingle(params);
     }
 
-    function buildOvlPosition(
-        uint256 size,
-        uint256 priceLimit
-    ) internal returns (uint256 positionId_) {
+    function buildOvlPosition(uint256 size, uint256 priceLimit)
+        internal
+        returns (uint256 positionId_)
+    {
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(size);
         TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
         positionId_ = ovlMarket.build(collateral, 1e18, true, priceLimit);
