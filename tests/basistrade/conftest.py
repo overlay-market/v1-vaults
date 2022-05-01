@@ -322,7 +322,7 @@ def state(create_state, factory):
 
 @pytest.fixture(scope="module")
 def create_eth_basis_trade(univ3_swap_router, weth, ovl,
-                           univ3_oe_pool, market, gov, state):
+                           univ3_oe_pool, market, alice, state):
     
     def create_eth_basis_trade(
                         swap_router=univ3_swap_router.address,
@@ -332,7 +332,7 @@ def create_eth_basis_trade(univ3_swap_router, weth, ovl,
                         mrkt=market.address,
                         st=state.address
                         ):
-        basistrade = gov.deploy(EthBasisTrade, swap_router, 
+        basistrade = alice.deploy(EthBasisTrade, swap_router, 
                                 weth, ovl, pool, mrkt, st)
         return basistrade
     yield create_eth_basis_trade

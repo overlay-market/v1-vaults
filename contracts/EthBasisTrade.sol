@@ -3,6 +3,7 @@ pragma solidity 0.8.10;
 pragma abicoder v2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
@@ -16,7 +17,7 @@ import "@overlay/v1-periphery/contracts/interfaces/IOverlayV1State.sol";
 import "@overlay/v1-core/contracts/libraries/uniswap/v3-core/FullMath.sol";
 import "@overlay/v1-core/contracts/libraries/uniswap/v3-core/TickMath.sol";
 
-contract EthBasisTrade {
+contract EthBasisTrade is AccessControl {
     using FixedPoint for uint256;
     uint256 public immutable ONE = 1e18;
 
@@ -27,7 +28,7 @@ contract EthBasisTrade {
     address public immutable WETH9;
     address public immutable pool;
 
-    uint256 posId;
+    uint256 public posId;
 
     /// @dev when currState = 0, contract holds spot WETH only
     /// @dev when currState = 1, contract holds a long on ETH/OVL
@@ -43,6 +44,7 @@ contract EthBasisTrade {
         address _ovlMarket,
         address _ovlState
     ) {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         swapRouter = _swapRouter;
         WETH9 = _WETH9;
         ovl = IOverlayV1Token(_ovl);
@@ -51,8 +53,13 @@ contract EthBasisTrade {
         ovlState = IOverlayV1State(_ovlState);
     }
 
+    modifier onlyOwner() {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "!owner");
+        _;
+    }
+
     /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
-    function depositWeth(uint256 amountIn) public {
+    function depositWeth(uint256 amountIn) external onlyOwner {
         IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
     }
 
@@ -88,7 +95,7 @@ contract EthBasisTrade {
     }
 
     function swapExactInputSingle(uint256 amountIn, bool toEth)
-        public
+        internal
         returns (uint256 amountOut)
     {
         address tokenIn;
@@ -123,7 +130,7 @@ contract EthBasisTrade {
     function buildOvlPosition(
         uint256 size,
         uint256 priceLimit
-    ) public returns (uint256 positionId_) {
+    ) internal returns (uint256 positionId_) {
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(size);
         TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
         positionId_ = ovlMarket.build(collateral, 1e18, true, priceLimit);
@@ -133,7 +140,7 @@ contract EthBasisTrade {
         uint256 positionId,
         uint256 fraction,
         uint256 priceLimit
-    ) public {
+    ) internal {
         ovlMarket.unwind(positionId, fraction, priceLimit);
     }
 
@@ -165,7 +172,7 @@ contract EthBasisTrade {
         }
     }
 
-    function withdraw() external {
+    function withdraw() external onlyOwner {
         uint256 ethAmount;
         if (currState == 0) {
             ethAmount = IERC20(WETH9).balanceOf(address(this));
