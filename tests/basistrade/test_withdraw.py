@@ -39,7 +39,7 @@ def test_withdraw_modifer(eth_basis_trade, market, state, feed, weth, ovl, alice
 @given(
     amount=strategy('uint256', min_value=2e14, max_value=20e18)
 )
-def test_withdraw_long(eth_basis_trade, market, weth, ovl, alice, , amount):
+def test_withdraw_long(eth_basis_trade, market, weth, ovl, alice, amount):
     # deposit weth
     weth.approve(eth_basis_trade.address, amount, {'from': alice})
     eth_basis_trade.depositWeth(amount, {'from': alice})
@@ -69,3 +69,35 @@ def test_withdraw_long(eth_basis_trade, market, weth, ovl, alice, , amount):
     assert tx_wd.events['Transfer'][5]['src'] == eth_basis_trade.address
     assert tx_wd.events['Transfer'][5]['dst'] == alice.address
     assert tx_wd.events['Transfer'][5]['wad'] == alice_post_bal - alice_prev_bal
+
+
+@given(
+    amount=strategy('uint256', min_value=2e14, max_value=20e18)
+)
+def test_withdraw_idle(eth_basis_trade, market, weth, ovl, alice, amount):
+    # deposit weth
+    weth.approve(eth_basis_trade.address, amount, {'from': alice})
+    eth_basis_trade.depositWeth(amount, {'from': alice})
+    
+    # build short position so longs earn funding
+    ovl.approve(market, ovl.balanceOf(alice), {'from': alice})
+    market.build(10e18, 1e18, False, 0, {'from': alice})
+    
+    # update vault
+    # should go long since funding negative after above short
+    eth_basis_trade.update({'from': alice})
+
+    # build long position so shorts earn funding
+    market.build(20e18, 1e18, True, 10e18, {'from': alice})
+
+    # update vault again
+    # should go idle since funding positive after above long
+    eth_basis_trade.update({'from': alice})
+
+    # withdraw in idle state
+    vault_weth_bal = weth.balanceOf(eth_basis_trade)
+    alice_pre_bal = weth.balanceOf(alice)
+    eth_basis_trade.withdraw({'from': alice})
+    alice_post_bal = weth.balanceOf(alice)
+
+    assert vault_weth_bal == alice_post_bal - alice_pre_bal
