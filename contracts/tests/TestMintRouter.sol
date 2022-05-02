@@ -9,7 +9,7 @@ import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.so
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 
 // fork of uniswap libraries for solidity^0.8.10
-import "../libraries/uniswapv3-core/TickMath.sol";
+import "@overlay/v1-core/contracts/libraries/uniswap/v3-core/TickMath.sol";
 
 /**
  * @title  TestMintRouter
