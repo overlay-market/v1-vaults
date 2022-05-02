@@ -1,0 +1,4 @@
+contracts/interfaces/for_tests/IUniswapV3Factory.sol
+contracts/interfaces/for_tests/IUniswapV3PoolActions.sol
+contracts/interfaces/for_tests/IUniswapV3PoolImmutables.sol
+contracts/interfaces/for_tests/IUniswapV3PoolState.sol
