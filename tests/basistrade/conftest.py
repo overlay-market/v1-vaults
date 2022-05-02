@@ -1,6 +1,7 @@
 import pytest
-from brownie import interface, chain, Contract, EthBasisTrade, TestMintRouter, web3
-from brownie_tokens import MintableForkToken, ERC20
+from brownie import interface, chain, Contract
+from brownie import EthBasisTrade, TestMintRouter, web3
+from brownie_tokens import MintableForkToken
 import numpy as np
 
 
@@ -129,18 +130,17 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
     def lp(pool, amount, tick_lower, tick_upper, l_provider):
         # approve weth and ovl spending to pool contract
         weth.approve(mint_router.address,
-                    weth.balanceOf(alice_weth), {'from': alice_weth})
+                     weth.balanceOf(alice_weth), {'from': alice_weth})
         weth.approve(mint_router.address,
-                    weth.balanceOf(bob_weth), {'from': bob_weth})
+                     weth.balanceOf(bob_weth), {'from': bob_weth})
         ovl.approve(mint_router.address,
                     ovl.balanceOf(alice_weth), {'from': alice_weth})
         ovl.approve(mint_router.address,
                     ovl.balanceOf(bob_weth), {'from': bob_weth})
         mint_router.mint(pool.address, tick_lower, tick_upper,
                          amount, {"from": l_provider})
-    
-    
-    # define function for swapping. add a lag between swaps so 1h TWAP is possible
+
+    # define func for swaps. lag between swaps so 1h TWAP is possible
     def swap(pool, size_range, addresses, num_of_swaps, lag):
         for i in range(num_of_swaps):
             size = np.random.choice(size_range, size=1)[0]
@@ -154,10 +154,9 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
                 mint_router.swap(pool, False, size, {'from': addr})
             chain.mine(timedelta=lag)
             print(f'Executing swap number: {i}')
-    
-    
+
     def create_univ3_oe_pool(owner=alice, token_a=ovl,
-                          token_b=weth, fee=fees):
+                             token_b=weth, fee=fees):
         # deploy OVL/WETH pool
         tx = interface\
                 .IUniswapV3Factory(uni_v3_factory.address)\
@@ -172,9 +171,10 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
         # provide liquidity
         lp(pool, 1000e18, -36000, 36000, alice_weth)
         lp(pool, 1000e18, -36000, 36000, bob_weth)
-        swap(pool, np.arange(1e17,9e17,step=1e16), [alice_weth, bob_weth], 80, 90)
+        swap(pool, np.arange(1e17, 9e17, step=1e16),
+             [alice_weth, bob_weth], 80, 90)
         return pool
-    
+
     yield create_univ3_oe_pool
 
 
@@ -201,9 +201,8 @@ def univ3_swap_router():
 @pytest.fixture(scope="module", params=[(600, 3600, 300, 15)])
 def create_feed_factory(ovl_v1_core, gov, ovl, univ3_oe_pool,
                         uni_v3_factory, request):
-    
-    micro, macro, observation_cardinality_min, avg_block_time= request.param
-    pool_state = interface.IUniswapV3PoolState(univ3_oe_pool.address).slot0()
+
+    micro, macro, observation_cardinality_min, avg_block_time = request.param
 
     def create_feed_factory():
         # deploy feed factory
@@ -266,7 +265,7 @@ def feed(create_feed):
     750000000000000,  # tradingFeeRate
     100000000000000,  # minCollateral
     25000000000000,  # priceDriftUpperLimit
-    15, # averageBlockTime
+    15,  # averageBlockTime
 )])
 def create_factory(ovl_v1_core, gov, fee_recipient, ovl, feed_factory, feed,
                    governor_role, request):
@@ -323,7 +322,7 @@ def state(create_state, factory):
 @pytest.fixture(scope="module")
 def create_eth_basis_trade(univ3_swap_router, weth, ovl,
                            univ3_oe_pool, market, alice, state):
-    
+
     def create_eth_basis_trade(
                         swap_router=univ3_swap_router.address,
                         weth=weth.address,
@@ -332,8 +331,8 @@ def create_eth_basis_trade(univ3_swap_router, weth, ovl,
                         mrkt=market.address,
                         st=state.address
                         ):
-        basistrade = alice.deploy(EthBasisTrade, swap_router, 
-                                weth, ovl, pool, mrkt, st)
+        basistrade = alice.deploy(EthBasisTrade, swap_router,
+                                  weth, ovl, pool, mrkt, st)
         return basistrade
     yield create_eth_basis_trade
 

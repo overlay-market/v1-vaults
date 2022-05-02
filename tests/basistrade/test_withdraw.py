@@ -1,5 +1,4 @@
-from brownie import chain, reverts
-from brownie_tokens import MintableForkToken
+from brownie import reverts
 from brownie.test import given, strategy
 import pytest
 
@@ -16,20 +15,21 @@ def isolation(fn_isolation):
 @given(
     amount=strategy('uint256', min_value=2e14, max_value=20e18)
 )
-def test_withdraw_modifer(eth_basis_trade, market, state, feed, weth, ovl, alice, bob, amount):
+def test_withdraw_modifer(eth_basis_trade, market, weth, ovl,
+                          alice, bob, amount):
     # deposit weth
     weth.approve(eth_basis_trade.address, amount, {'from': alice})
     eth_basis_trade.depositWeth(amount, {'from': alice})
-    
+
     # build short position so longs earn funding
     ovl.approve(market, ovl.balanceOf(alice), {'from': alice})
     market.build(10e18, 1e18, False, 0, {'from': alice})
-    
+
     # update vault
     # should go long since funding negative after above short
-    pre_update_weth_bal = weth.balanceOf(eth_basis_trade)
+    weth.balanceOf(eth_basis_trade)
     eth_basis_trade.update({'from': alice})
-    post_update_weth_bal = weth.balanceOf(eth_basis_trade)
+    weth.balanceOf(eth_basis_trade)
 
     # withdraw by bob fails since not owner
     with reverts("!owner"):
@@ -43,11 +43,11 @@ def test_withdraw_long(eth_basis_trade, market, weth, ovl, alice, amount):
     # deposit weth
     weth.approve(eth_basis_trade.address, amount, {'from': alice})
     eth_basis_trade.depositWeth(amount, {'from': alice})
-    
+
     # build short position so longs earn funding
     ovl.approve(market, ovl.balanceOf(alice), {'from': alice})
     market.build(10e18, 1e18, False, 0, {'from': alice})
-    
+
     # update vault
     # should go long since funding negative after above short
     eth_basis_trade.update({'from': alice})
@@ -56,6 +56,7 @@ def test_withdraw_long(eth_basis_trade, market, weth, ovl, alice, amount):
     alice_prev_bal = weth.balanceOf(alice)
     tx_wd = eth_basis_trade.withdraw({'from': alice})
     alice_post_bal = weth.balanceOf(alice)
+    alice_diff_bal = alice_post_bal - alice_prev_bal
 
     # test position id 1 is completely withdrawn
     assert tx_wd.events['Unwind']['positionId'] == 1
@@ -68,7 +69,7 @@ def test_withdraw_long(eth_basis_trade, market, weth, ovl, alice, amount):
     # test weth transferred to alice from vault
     assert tx_wd.events['Transfer'][5]['src'] == eth_basis_trade.address
     assert tx_wd.events['Transfer'][5]['dst'] == alice.address
-    assert tx_wd.events['Transfer'][5]['wad'] == alice_post_bal - alice_prev_bal
+    assert tx_wd.events['Transfer'][5]['wad'] == alice_diff_bal
 
 
 @given(
@@ -78,11 +79,11 @@ def test_withdraw_idle(eth_basis_trade, market, weth, ovl, alice, amount):
     # deposit weth
     weth.approve(eth_basis_trade.address, amount, {'from': alice})
     eth_basis_trade.depositWeth(amount, {'from': alice})
-    
+
     # build short position so longs earn funding
     ovl.approve(market, ovl.balanceOf(alice), {'from': alice})
     market.build(10e18, 1e18, False, 0, {'from': alice})
-    
+
     # update vault
     # should go long since funding negative after above short
     eth_basis_trade.update({'from': alice})

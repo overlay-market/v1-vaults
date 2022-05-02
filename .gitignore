@@ -10,3 +10,4 @@ reports/
 *.bk
 todo
 pseudocode
+.vscode

@@ -16,7 +16,7 @@ def test_deposit(alice, bob, eth_basis_trade, weth, amount):
     eth_basis_trade.depositWeth(amount, {'from': alice})
     # tests
     assert weth.balanceOf(eth_basis_trade) == amount
-    
+
     # bob's deposit should revert since not owner
     weth_token._mint_for_testing(bob, amount)
     weth.approve(eth_basis_trade.address, amount, {'from': bob})
