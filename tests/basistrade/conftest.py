@@ -338,14 +338,14 @@ def create_eth_basis_trade(univ3_swap_router, weth, ovl,
 
     def create_eth_basis_trade(
                         swap_router=univ3_swap_router.address,
+                        st=state.address,
                         weth=weth.address,
                         ovl=ovl.address,
                         pool=univ3_oe_pool.address,
-                        mrkt=market.address,
-                        st=state.address
+                        mrkt=market.address
                         ):
-        basistrade = alice.deploy(EthBasisTrade, swap_router,
-                                  weth, ovl, pool, mrkt, st)
+        basistrade = alice.deploy(EthBasisTrade, swap_router, st,
+                                  weth, ovl, pool, mrkt)
         return basistrade
     yield create_eth_basis_trade
 
@@ -353,3 +353,4 @@ def create_eth_basis_trade(univ3_swap_router, weth, ovl,
 @pytest.fixture(scope="module")
 def eth_basis_trade(create_eth_basis_trade):
     yield create_eth_basis_trade()
+ 
