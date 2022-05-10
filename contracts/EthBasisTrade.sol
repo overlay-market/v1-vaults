@@ -17,7 +17,7 @@ import "@overlay/v1-periphery/contracts/interfaces/IOverlayV1State.sol";
 import "@overlay/v1-core/contracts/libraries/uniswap/v3-core/FullMath.sol";
 import "@overlay/v1-core/contracts/libraries/uniswap/v3-core/TickMath.sol";
 
-contract EthBasisTrade is AccessControl {
+contract EthBasisTrade {
     using FixedPoint for uint256;
     uint256 public immutable ONE = 1e18;
 
@@ -27,6 +27,7 @@ contract EthBasisTrade is AccessControl {
     IOverlayV1State public immutable ovlState;
     address public immutable WETH9;
     address public immutable pool;
+    address public immutable owner;
 
     uint256 public posId;
 
@@ -44,7 +45,7 @@ contract EthBasisTrade is AccessControl {
         address _pool,
         address _ovlMarket
     ) {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        owner = msg.sender;
         swapRouter = _swapRouter;
         ovlState = IOverlayV1State(_ovlState);
         WETH9 = _WETH9;
@@ -54,7 +55,7 @@ contract EthBasisTrade is AccessControl {
     }
 
     modifier onlyOwner() {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "!owner");
+        require(msg.sender == owner, "!owner");
         _;
     }
 
