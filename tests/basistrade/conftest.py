@@ -2,7 +2,7 @@ import pytest
 from brownie import interface, chain, Contract
 from brownie import EthBasisTrade, TestMintRouter, web3
 from brownie_tokens import MintableForkToken
-import numpy as np
+import random
 
 
 @pytest.fixture(scope="module")
@@ -174,14 +174,14 @@ def pool_w_lps(init_univ3_oe_pool, weth, ovl, alice_weth,
 def pool_w_swaps(pool_w_lps, mint_router, alice, bob, request):
     start, stop, step, num_swaps, lag = request.param
     # define func for swaps. lag between swaps so 1h TWAP is possible
-    sz_rng = np.arange(start, stop, step=step)
+    sz_rng = range(int(start), int(stop), int(step))
     adds = [alice, bob]
     def swap(pool=pool_w_lps, size_range=sz_rng, addresses=adds,
              num_of_swaps=num_swaps, lag=lag):
         for i in range(num_of_swaps):
-            size = np.random.choice(size_range, size=1)[0]
-            addr = np.random.choice(addresses, size=1)[0]
-            zero_or_one = np.random.choice([True, False], size=1)[0]
+            size = random.sample(size_range, 1)[0]
+            addr = random.choice(addresses)
+            zero_or_one = random.choice([True, False])
             if zero_or_one:
                 # tried to use zero_or_one as an input to `swap` but was
                 # erroring with: Cannot convert bool_ 'False' to bool
