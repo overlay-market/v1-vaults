@@ -1,4 +1,4 @@
-from brownie import chain
+from brownie import chain, interface
 from .utils import RiskParameter
 
 
@@ -13,12 +13,15 @@ def test_token_fixtures(weth):
     assert weth.name() == "Wrapped Ether"
 
 
-def test_pool_fixtures(univ3_oe_pool_immutables, uni_v3_factory, weth, ovl):
-    assert univ3_oe_pool_immutables.fee() == 3000
+def test_pool_fixtures(init_univ3_oe_pool, uni_v3_factory, weth, ovl):
+    immutables = interface.IUniswapV3PoolImmutables(init_univ3_oe_pool)
+    state = interface.IUniswapV3PoolState(init_univ3_oe_pool)
+    assert immutables.fee() == 3000
     # token0 and token1 are sorted by address
-    assert univ3_oe_pool_immutables.token0() == weth
-    assert univ3_oe_pool_immutables.token1() == ovl
-    assert univ3_oe_pool_immutables == uni_v3_factory.getPool(ovl, weth, 3000)
+    assert immutables.token0() == weth
+    assert immutables.token1() == ovl
+    assert init_univ3_oe_pool == uni_v3_factory.getPool(ovl, weth, 3000)
+    assert state.slot0()[0] == 7.9220240490215315e28
 
 
 def test_factory_fixture(factory, ovl, fee_recipient, market, feed_factory):
