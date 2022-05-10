@@ -38,19 +38,19 @@ contract EthBasisTrade is AccessControl {
 
     constructor(
         ISwapRouter _swapRouter,
+        address _ovlState,
         address _WETH9,
         address _ovl,
         address _pool,
-        address _ovlMarket,
-        address _ovlState
+        address _ovlMarket
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         swapRouter = _swapRouter;
+        ovlState = IOverlayV1State(_ovlState);
         WETH9 = _WETH9;
         ovl = IOverlayV1Token(_ovl);
         pool = _pool;
         ovlMarket = IOverlayV1Market(_ovlMarket);
-        ovlState = IOverlayV1State(_ovlState);
     }
 
     modifier onlyOwner() {
