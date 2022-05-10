@@ -126,35 +126,6 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
                          alice_weth, bob_weth, mint_router):
     fees = request.param
 
-    # define function for LPing to OVL/WETH pool
-    def lp(pool, amount, tick_lower, tick_upper, l_provider):
-        # approve weth and ovl spending to pool contract
-        weth.approve(mint_router.address,
-                     weth.balanceOf(alice_weth), {'from': alice_weth})
-        weth.approve(mint_router.address,
-                     weth.balanceOf(bob_weth), {'from': bob_weth})
-        ovl.approve(mint_router.address,
-                    ovl.balanceOf(alice_weth), {'from': alice_weth})
-        ovl.approve(mint_router.address,
-                    ovl.balanceOf(bob_weth), {'from': bob_weth})
-        mint_router.mint(pool.address, tick_lower, tick_upper,
-                         amount, {"from": l_provider})
-
-    # define func for swaps. lag between swaps so 1h TWAP is possible
-    def swap(pool, size_range, addresses, num_of_swaps, lag):
-        for i in range(num_of_swaps):
-            size = np.random.choice(size_range, size=1)[0]
-            addr = np.random.choice(addresses, size=1)[0]
-            zero_or_one = np.random.choice([True, False], size=1)[0]
-            if zero_or_one:
-                # tried to use zero_or_one as an input to `swap` but was
-                # erroring with: Cannot convert bool_ 'False' to bool
-                mint_router.swap(pool, True, size, {'from': addr})
-            else:
-                mint_router.swap(pool, False, size, {'from': addr})
-            chain.mine(timedelta=lag)
-            print(f'Executing swap number: {i}')
-
     def create_univ3_oe_pool(owner=alice, token_a=ovl,
                              token_b=weth, fee=fees):
         # deploy OVL/WETH pool
@@ -168,19 +139,64 @@ def create_univ3_oe_pool(alice, ovl, weth, uni_v3_factory, request,
         # default settings. therefore changed `timeout` setting in
         # network_config.yaml for mainnet-fork to 180 (default: 120)
         pool.increaseObservationCardinalityNext(310, {"from": owner})
-        # provide liquidity
-        lp(pool, 1000e18, -36000, 36000, alice_weth)
-        lp(pool, 1000e18, -36000, 36000, bob_weth)
-        swap(pool, np.arange(1e17, 9e17, step=1e16),
-             [alice_weth, bob_weth], 80, 90)
         return pool
 
     yield create_univ3_oe_pool
 
 
 @pytest.fixture(scope="module")
-def univ3_oe_pool(create_univ3_oe_pool):
+def init_univ3_oe_pool(create_univ3_oe_pool):
     yield create_univ3_oe_pool()
+
+
+@pytest.fixture(scope="module", params=[(1000e18, -36000, 36000)])
+def pool_w_lps(init_univ3_oe_pool, weth, ovl, alice_weth,
+               bob_weth, mint_router, request):
+    amount, tick_lower, tick_upper = request.param
+    # approve weth and ovl spending to pool contract
+    weth.approve(mint_router.address,
+                 weth.balanceOf(alice_weth), {'from': alice_weth})
+    ovl.approve(mint_router.address,
+                ovl.balanceOf(alice_weth), {'from': alice_weth})
+    weth.approve(mint_router.address,
+                 weth.balanceOf(bob_weth), {'from': bob_weth})
+    ovl.approve(mint_router.address,
+                ovl.balanceOf(bob_weth), {'from': bob_weth})
+    # provide liquidity
+    mint_router.mint(init_univ3_oe_pool.address, tick_lower, tick_upper,
+                     amount, {"from": alice_weth})
+    mint_router.mint(init_univ3_oe_pool.address, tick_lower, tick_upper,
+                     amount, {"from": bob_weth})
+    yield init_univ3_oe_pool
+
+
+@pytest.fixture(scope="module", params=[(1e17, 9e17, 1e16, 80, 90)])
+def pool_w_swaps(pool_w_lps, mint_router, alice, bob, request):
+    start, stop, step, num_swaps, lag = request.param
+    # define func for swaps. lag between swaps so 1h TWAP is possible
+    sz_rng = np.arange(start, stop, step=step)
+    adds = [alice, bob]
+    def swap(pool=pool_w_lps, size_range=sz_rng, addresses=adds,
+             num_of_swaps=num_swaps, lag=lag):
+        for i in range(num_of_swaps):
+            size = np.random.choice(size_range, size=1)[0]
+            addr = np.random.choice(addresses, size=1)[0]
+            zero_or_one = np.random.choice([True, False], size=1)[0]
+            if zero_or_one:
+                # tried to use zero_or_one as an input to `swap` but was
+                # erroring with: Cannot convert bool_ 'False' to bool
+                mint_router.swap(pool, True, size, {'from': addr})
+            else:
+                mint_router.swap(pool, False, size, {'from': addr})
+            chain.mine(timedelta=lag)
+            print(f'Executing swap number: {i}')
+        return pool
+    yield swap
+
+
+@pytest.fixture(scope="module")
+def univ3_oe_pool(pool_w_swaps):
+    yield pool_w_swaps()
 
 
 @pytest.fixture(scope="module")
