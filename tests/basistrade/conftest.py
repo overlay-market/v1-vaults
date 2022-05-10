@@ -80,14 +80,11 @@ def ovl(create_token):
     yield create_token()
 
 
-def load_contract(address, load=False):
-    if load:
+def load_contract(address):
+    try:
+        return Contract(address)
+    except ValueError:
         return Contract.from_explorer(address)
-    else:
-        try:
-            return Contract(address)
-        except ValueError:
-            return Contract.from_explorer(address)
 
 
 @pytest.fixture(scope="module")
@@ -211,7 +208,7 @@ def mint_router(gov):
 
 @pytest.fixture(scope="module")
 def univ3_swap_router():
-    yield load_contract("0xE592427A0AEce92De3Edee1F18E0157C05861564", True)
+    yield load_contract("0xE592427A0AEce92De3Edee1F18E0157C05861564")
 
 
 @pytest.fixture(scope="module", params=[(600, 3600, 300, 15)])
