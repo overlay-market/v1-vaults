@@ -64,55 +64,59 @@ contract EthBasisTrade {
         IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
     }
 
-    /// @dev similar to getQuoteAtTick in uniswap v3
+    
+    function getOffsetTick(bool _toEth) public view returns (int24 tick_) {
+        int24 tickCurr;
+        (, tickCurr, , , , , ) = IUniswapV3Pool(pool).slot0();
+        if (_toEth) {
+            tick_ = tickCurr + 200;
+        } else {
+            tick_ = tickCurr - 200;
+        }
+    }
+    
+    /// @dev copied: ovlerlay-market/v1-core/contracts/feeds/uniswapv3/OverlayV1UniswapV3Feed.sol
     function getQuoteAtTick(
-        bool toEth,
+        int24 tick,
         uint128 baseAmount,
         address baseToken,
         address quoteToken
-    ) public view returns (uint256 quoteAmount) {
-        int24 tick;
-        int24 tickCurr;
-        (, tickCurr, , , , , ) = IUniswapV3Pool(pool).slot0();
-        if (toEth == true) {
-            tick = tickCurr + 200;
-        } else {
-            tick = tickCurr - 200;
-        }
+    ) public view returns (uint256 quoteAmount_) {
         uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
-        // Calculate quoteAmount with better precision if
-        // it doesn't overflow when multiplied by itself
+
+        // Calculate quoteAmount with better precision if it doesn't overflow when multiplied by
+        // itself
         if (sqrtRatioX96 <= type(uint128).max) {
             uint256 ratioX192 = uint256(sqrtRatioX96) * sqrtRatioX96;
-            quoteAmount = baseToken < quoteToken
+            quoteAmount_ = baseToken < quoteToken
                 ? FullMath.mulDiv(ratioX192, baseAmount, 1 << 192)
                 : FullMath.mulDiv(1 << 192, baseAmount, ratioX192);
         } else {
             uint256 ratioX128 = FullMath.mulDiv(sqrtRatioX96, sqrtRatioX96, 1 << 64);
-            quoteAmount = baseToken < quoteToken
+            quoteAmount_ = baseToken < quoteToken
                 ? FullMath.mulDiv(ratioX128, baseAmount, 1 << 128)
                 : FullMath.mulDiv(1 << 128, baseAmount, ratioX128);
         }
     }
 
-    function swapExactInputSingle(uint256 amountIn, bool toEth)
+    function swapExactInputSingle(uint256 _amountIn, bool _toEth)
         internal
         returns (uint256 amountOut)
     {
         address tokenIn;
         address tokenOut;
 
-        if (toEth == true) {
+        if (_toEth) {
             tokenIn = address(ovl);
             tokenOut = WETH9;
         } else {
             tokenIn = WETH9;
             tokenOut = address(ovl);
         }
-        uint256 amountOutFactor = getQuoteAtTick(toEth, 1e18, tokenIn, tokenOut);
-        uint256 amountOutMinimum = FullMath.mulDiv(amountOutFactor, amountIn, 1e18);
+        int24 tick = getOffsetTick(_toEth);
+        uint256 amountOutMinimum = getQuoteAtTick(tick, uint128(_amountIn), tokenIn, tokenOut);
 
-        TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
+        TransferHelper.safeApprove(tokenIn, address(swapRouter), _amountIn);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: tokenIn,
@@ -120,7 +124,7 @@ contract EthBasisTrade {
             fee: IUniswapV3PoolImmutables(pool).fee(),
             recipient: address(this),
             deadline: block.timestamp + 120,
-            amountIn: amountIn,
+            amountIn: _amountIn,
             amountOutMinimum: amountOutMinimum,
             sqrtPriceLimitX96: 0
         });
