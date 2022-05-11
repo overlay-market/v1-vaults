@@ -156,7 +156,7 @@ contract EthBasisTrade {
         returns (uint256 collateral_, uint256 fee_)
     {
         collateral_ = _amountInWithFees.divDown(1e18 + ovlMarket.params(11));
-        fee_ = collateral.mulUp(ovlMarket.params(11));
+        fee_ = collateral_.mulUp(ovlMarket.params(11));
     }
 
     function update() external {
