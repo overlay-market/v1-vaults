@@ -60,8 +60,8 @@ contract EthBasisTrade {
     }
 
     /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
-    function depositWeth(uint256 amountIn) external onlyOwner {
-        IERC20(WETH9).transferFrom(msg.sender, address(this), amountIn);
+    function depositWeth(uint256 _amountIn) external onlyOwner {
+        IERC20(WETH9).transferFrom(msg.sender, address(this), _amountIn);
     }
 
     
@@ -99,9 +99,9 @@ contract EthBasisTrade {
         }
     }
 
-    function swapExactInputSingle(uint256 _amountIn, bool _toEth)
+    function swapSingleUniV3(uint256 _amountIn, bool _toEth)
         internal
-        returns (uint256 amountOut)
+        returns (uint256 amountOut_)
     {
         address tokenIn;
         address tokenOut;
@@ -129,34 +129,34 @@ contract EthBasisTrade {
             sqrtPriceLimitX96: 0
         });
 
-        amountOut = swapRouter.exactInputSingle(params);
+        amountOut_ = swapRouter.exactInputSingle(params);
     }
 
-    function buildOvlPosition(uint256 size, uint256 priceLimit)
+    function buildOvlPosition(uint256 _size, uint256 _priceLimit)
         internal
         returns (uint256 positionId_)
     {
-        (uint256 collateral, uint256 fee) = getOverlayTradingFee(size);
+        (uint256 collateral, uint256 fee) = getOverlayTradingFee(_size);
         TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
-        positionId_ = ovlMarket.build(collateral, 1e18, true, priceLimit);
+        positionId_ = ovlMarket.build(collateral, 1e18, true, _priceLimit);
     }
 
     function unwindOvlPosition(
-        uint256 positionId,
-        uint256 fraction,
-        uint256 priceLimit
+        uint256 _positionId,
+        uint256 _fraction,
+        uint256 _priceLimit
     ) internal {
-        ovlMarket.unwind(positionId, fraction, priceLimit);
+        ovlMarket.unwind(_positionId, _fraction, _priceLimit);
     }
 
     /// @notice collateral is equal to notional size since leverage is always 1 for basis trade
-    function getOverlayTradingFee(uint256 totalSize)
+    function getOverlayTradingFee(uint256 _amountInWithFees)
         public
         view
-        returns (uint256 collateral, uint256 fee)
+        returns (uint256 collateral_, uint256 fee_)
     {
-        collateral = totalSize.divDown(1e18 + ovlMarket.params(11));
-        fee = collateral.mulUp(ovlMarket.params(11));
+        collateral_ = _amountInWithFees.divDown(1e18 + ovlMarket.params(11));
+        fee_ = collateral.mulUp(ovlMarket.params(11));
     }
 
     function update() external {
@@ -166,14 +166,14 @@ contract EthBasisTrade {
             require(currState == 0, "Already long");
             currState = 1;
             uint256 ethAmount = IERC20(WETH9).balanceOf(address(this));
-            ovlAmount = swapExactInputSingle(ethAmount, false);
+            ovlAmount = swapSingleUniV3(ethAmount, false);
             posId = buildOvlPosition(ovlAmount, 10e18);
         } else {
             require(currState == 1, "Already idle");
             currState = 0;
             unwindOvlPosition(posId, 1e18, 0);
             ovlAmount = ovl.balanceOf(address(this));
-            swapExactInputSingle(ovlAmount, true);
+            swapSingleUniV3(ovlAmount, true);
         }
     }
 
@@ -185,13 +185,13 @@ contract EthBasisTrade {
         } else {
             unwindOvlPosition(posId, 1e18, 0);
             uint256 ovlAmount = ovl.balanceOf(address(this));
-            ethAmount = swapExactInputSingle(ovlAmount, true);
+            ethAmount = swapSingleUniV3(ovlAmount, true);
             _withdraw(ethAmount);
         }
     }
 
-    function _withdraw(uint256 ethAmount) internal {
-        TransferHelper.safeApprove(WETH9, msg.sender, ethAmount);
-        IERC20(WETH9).transferFrom(address(this), msg.sender, ethAmount);
+    function _withdraw(uint256 _ethAmount) internal {
+        TransferHelper.safeApprove(WETH9, msg.sender, _ethAmount);
+        IERC20(WETH9).transferFrom(address(this), msg.sender, _ethAmount);
     }
 }
