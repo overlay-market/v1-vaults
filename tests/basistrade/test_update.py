@@ -40,12 +40,12 @@ def test_update(eth_basis_trade, market, state, feed,
     assert post_update_weth_bal == 0
 
     # test all ovl obtained from swapping got used in building pos
-    assert ovl.balanceOf(eth_basis_trade) == 0
+    assert ovl.balanceOf(eth_basis_trade) <= 9
 
     # test vault holds position
     pos_id = eth_basis_trade.posId()
     assert pos_id == 1
-    assert state.position(feed, eth_basis_trade, pos_id)[0] > 0
+    assert state.position(market, eth_basis_trade, pos_id)[0] > 0
 
     # build long position so shorts earn funding
     market.build(20e18, 1e18, True, 10e18, {'from': alice})
