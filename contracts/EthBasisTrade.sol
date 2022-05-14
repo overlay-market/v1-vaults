@@ -199,7 +199,6 @@ contract EthBasisTrade {
     }
 
     function _withdraw(uint256 _ethAmount) internal {
-        TransferHelper.safeApprove(WETH9, msg.sender, _ethAmount);
-        IERC20(WETH9).transferFrom(address(this), msg.sender, _ethAmount);
+        IERC20(WETH9).transfer(msg.sender, _ethAmount);
     }
 }
