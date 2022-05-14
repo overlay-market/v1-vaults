@@ -64,7 +64,6 @@ contract EthBasisTrade {
         IERC20(WETH9).transferFrom(msg.sender, address(this), _amountIn);
     }
 
-    
     function getOffsetTick(bool _toEth) public view returns (int24 tick_) {
         int24 tickCurr;
         (, tickCurr, , , , , ) = IUniswapV3Pool(pool).slot0();
@@ -74,7 +73,7 @@ contract EthBasisTrade {
             tick_ = tickCurr - 200;
         }
     }
-    
+
     /// @dev copied: ovlerlay-market/v1-core/contracts/feeds/uniswapv3/OverlayV1UniswapV3Feed.sol
     function getQuoteAtTick(
         int24 tick,
