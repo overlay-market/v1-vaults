@@ -12,7 +12,7 @@ def ovl_v1_core(pm):
 
 @pytest.fixture(scope="module")
 def ovl_v1_periphery(pm):
-    return pm("overlay-market/v1-periphery@1.0.0-beta.3")
+    return pm("overlay-market/v1-periphery@1.0.0-beta.5")
 
 
 @pytest.fixture(scope="module")
