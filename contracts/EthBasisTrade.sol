@@ -158,6 +158,16 @@ contract EthBasisTrade {
         fee_ = collateral_.mulUp(ovlMarket.params(11));
     }
 
+    function unwindAndSwap(
+        uint256 _posId,
+        uint256 _fraction,
+        uint256 _priceLimit
+    ) internal returns (uint256) {
+        unwindOvlPosition(_posId, _fraction, _priceLimit);
+        uint256 ovlAmount = ovl.balanceOf(address(this));
+        return swapSingleUniV3(ovlAmount, true);
+    }
+
     function update() external {
         uint256 ovlAmount;
         int256 fundingRate = ovlState.fundingRate(ovlMarket);
@@ -170,9 +180,7 @@ contract EthBasisTrade {
         } else {
             require(currState == 1, "Already idle");
             currState = 0;
-            unwindOvlPosition(posId, 1e18, 0);
-            ovlAmount = ovl.balanceOf(address(this));
-            swapSingleUniV3(ovlAmount, true);
+            unwindAndSwap(posId, 1e18, 0);
         }
     }
 
@@ -182,9 +190,7 @@ contract EthBasisTrade {
             ethAmount = IERC20(WETH9).balanceOf(address(this));
             _withdraw(ethAmount);
         } else {
-            unwindOvlPosition(posId, 1e18, 0);
-            uint256 ovlAmount = ovl.balanceOf(address(this));
-            ethAmount = swapSingleUniV3(ovlAmount, true);
+            ethAmount = unwindAndSwap(posId, 1e18, 0);
             _withdraw(ethAmount);
         }
     }
