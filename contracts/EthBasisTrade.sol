@@ -168,15 +168,18 @@ contract EthBasisTrade {
         return swapSingleUniV3(ovlAmount, true);
     }
 
+    function swapAndBuild() internal {
+        uint256 ethAmount = IERC20(WETH9).balanceOf(address(this));
+        uint256 ovlAmount = swapSingleUniV3(ethAmount, false);
+        posId = buildOvlPosition(ovlAmount, 10e18);
+    }
+
     function update() external {
-        uint256 ovlAmount;
         int256 fundingRate = ovlState.fundingRate(ovlMarket);
         if (fundingRate < 0) {
             require(currState == 0, "Already long");
             currState = 1;
-            uint256 ethAmount = IERC20(WETH9).balanceOf(address(this));
-            ovlAmount = swapSingleUniV3(ethAmount, false);
-            posId = buildOvlPosition(ovlAmount, 10e18);
+            swapAndBuild();
         } else {
             require(currState == 1, "Already idle");
             currState = 0;
