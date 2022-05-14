@@ -19,7 +19,7 @@ import "@overlay/v1-core/contracts/libraries/uniswap/v3-core/TickMath.sol";
 
 contract EthBasisTrade {
     using FixedPoint for uint256;
-    uint256 public immutable ONE = 1e18;
+    uint256 internal constant ONE = 1e18; // 18 decimal places
 
     ISwapRouter public immutable swapRouter;
     IOverlayV1Token public immutable ovl;
@@ -137,7 +137,7 @@ contract EthBasisTrade {
     {
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(_size);
         TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
-        positionId_ = ovlMarket.build(collateral, 1e18, true, _priceLimit);
+        positionId_ = ovlMarket.build(collateral, ONE, true, _priceLimit);
     }
 
     function unwindOvlPosition(
@@ -154,7 +154,7 @@ contract EthBasisTrade {
         view
         returns (uint256 collateral_, uint256 fee_)
     {
-        collateral_ = _amountInWithFees.divDown(1e18 + ovlMarket.params(11));
+        collateral_ = _amountInWithFees.divDown(ONE + ovlMarket.params(11));
         fee_ = collateral_.mulUp(ovlMarket.params(11));
     }
 
@@ -183,7 +183,7 @@ contract EthBasisTrade {
         } else {
             require(currState == 1, "Already idle");
             currState = 0;
-            unwindAndSwap(posId, 1e18, 0);
+            unwindAndSwap(posId, ONE, 0);
         }
     }
 
@@ -193,7 +193,7 @@ contract EthBasisTrade {
             ethAmount = IERC20(WETH9).balanceOf(address(this));
             _withdraw(ethAmount);
         } else {
-            ethAmount = unwindAndSwap(posId, 1e18, 0);
+            ethAmount = unwindAndSwap(posId, ONE, 0);
             _withdraw(ethAmount);
         }
     }
