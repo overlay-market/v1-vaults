@@ -12,7 +12,7 @@ dotenv: .env
 dependencies:
   - OpenZeppelin/openzeppelin-contracts@4.5.0
   - overlay-market/v1-core@1.0.0-beta.2
-  - overlay-market/v1-periphery@1.0.0-beta.3
+  - overlay-market/v1-periphery@1.0.0-beta.5
   - Uniswap/v3-core@1.0.0
   - Uniswap/v3-periphery@1.3.0
 
@@ -25,6 +25,6 @@ compiler:
     remappings:
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.5.0"
       - "@overlay/v1-core=overlay-market/v1-core@1.0.0-beta.2"
-      - "@overlay/v1-periphery=overlay-market/v1-periphery@1.0.0-beta.3"
+      - "@overlay/v1-periphery=overlay-market/v1-periphery@1.0.0-beta.5"
       - "@uniswap/v3-core=Uniswap/v3-core@1.0.0"
       - "@uniswap/v3-periphery=Uniswap/v3-periphery@1.3.0"

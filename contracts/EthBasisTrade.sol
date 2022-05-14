@@ -160,7 +160,7 @@ contract EthBasisTrade {
 
     function update() external {
         uint256 ovlAmount;
-        int256 fundingRate = ovlState.fundingRate(ovlMarket.feed());
+        int256 fundingRate = ovlState.fundingRate(ovlMarket);
         if (fundingRate < 0) {
             require(currState == 0, "Already long");
             currState = 1;
