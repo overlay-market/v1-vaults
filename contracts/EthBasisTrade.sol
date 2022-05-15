@@ -156,7 +156,7 @@ contract EthBasisTrade {
         public
         view
         returns (uint256 collateral_, uint256 fee_)
-    {   
+    {
         uint256 tradingFeeRate = ovlMarket.params(uint256(Risk.Parameters.TradingFeeRate));
         collateral_ = _amountInWithFees.divDown(ONE + tradingFeeRate);
         fee_ = collateral_.mulUp(tradingFeeRate);
