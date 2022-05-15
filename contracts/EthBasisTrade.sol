@@ -99,7 +99,8 @@ contract EthBasisTrade {
     }
 
     function swapSingleUniV3(uint256 _amountIn, bool _toEth)
-        public onlyOwner
+        public
+        onlyOwner
         returns (uint256 amountOut_)
     {
         address tokenIn;
@@ -132,7 +133,8 @@ contract EthBasisTrade {
     }
 
     function buildOvlPosition(uint256 _size, uint256 _priceLimit)
-        public onlyOwner
+        public
+        onlyOwner
         returns (uint256 positionId_)
     {
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(_size);
