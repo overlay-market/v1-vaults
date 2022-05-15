@@ -99,7 +99,7 @@ contract EthBasisTrade {
     }
 
     function swapSingleUniV3(uint256 _amountIn, bool _toEth)
-        internal
+        public onlyOwner
         returns (uint256 amountOut_)
     {
         address tokenIn;
@@ -132,7 +132,7 @@ contract EthBasisTrade {
     }
 
     function buildOvlPosition(uint256 _size, uint256 _priceLimit)
-        internal
+        public onlyOwner
         returns (uint256 positionId_)
     {
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(_size);
@@ -144,7 +144,7 @@ contract EthBasisTrade {
         uint256 _positionId,
         uint256 _fraction,
         uint256 _priceLimit
-    ) internal {
+    ) public onlyOwner {
         ovlMarket.unwind(_positionId, _fraction, _priceLimit);
     }
 
@@ -162,13 +162,13 @@ contract EthBasisTrade {
         uint256 _posId,
         uint256 _fraction,
         uint256 _priceLimit
-    ) internal returns (uint256) {
+    ) public onlyOwner returns (uint256) {
         unwindOvlPosition(_posId, _fraction, _priceLimit);
         uint256 ovlAmount = ovl.balanceOf(address(this));
         return swapSingleUniV3(ovlAmount, true);
     }
 
-    function swapAndBuild() internal {
+    function swapAndBuild() public onlyOwner {
         uint256 ethAmount = IERC20(WETH9).balanceOf(address(this));
         uint256 ovlAmount = swapSingleUniV3(ethAmount, false);
         posId = buildOvlPosition(ovlAmount, 10e18);
@@ -198,7 +198,7 @@ contract EthBasisTrade {
         }
     }
 
-    function _withdraw(uint256 _ethAmount) internal {
+    function _withdraw(uint256 _ethAmount) public onlyOwner {
         IERC20(WETH9).transfer(msg.sender, _ethAmount);
     }
 }

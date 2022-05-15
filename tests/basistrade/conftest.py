@@ -167,7 +167,7 @@ def pool_w_lps(init_univ3_oe_pool, weth, ovl, alice_weth,
     yield init_univ3_oe_pool
 
 
-@pytest.fixture(scope="module", params=[(1e17, 9e17, 1e16, 80, 90)])
+@pytest.fixture(scope="module", params=[(1e17, 9e17, 1e16, 5, 1500)])
 def pool_w_swaps(pool_w_lps, mint_router, alice, bob, request):
     start, stop, step, num_swaps, lag = request.param
     # define func for swaps. lag between swaps so 1h TWAP is possible
