@@ -1,5 +1,13 @@
 from brownie import reverts
 from brownie.test import given, strategy
+import pytest
+
+
+# NOTE: Tests passing with isolation fixture
+# TODO: Fix tests to pass even without isolation fixture (?)
+@pytest.fixture(autouse=True)
+def isolation(fn_isolation):
+    pass
 
 
 @given(
