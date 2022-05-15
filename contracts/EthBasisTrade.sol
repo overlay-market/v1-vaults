@@ -11,6 +11,7 @@ import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolImmutables.sol"
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Market.sol";
 import "@overlay/v1-core/contracts/interfaces/IOverlayV1Token.sol";
 import "@overlay/v1-core/contracts/libraries/FixedPoint.sol";
+import "@overlay/v1-core/contracts/libraries/Risk.sol";
 import "@overlay/v1-periphery/contracts/interfaces/IOverlayV1State.sol";
 
 // forks of uniswap libraries for solidity^0.8.10
@@ -155,9 +156,10 @@ contract EthBasisTrade {
         public
         view
         returns (uint256 collateral_, uint256 fee_)
-    {
-        collateral_ = _amountInWithFees.divDown(ONE + ovlMarket.params(11));
-        fee_ = collateral_.mulUp(ovlMarket.params(11));
+    {   
+        uint256 tradingFeeRate = ovlMarket.params(uint256(Risk.Parameters.TradingFeeRate));
+        collateral_ = _amountInWithFees.divDown(ONE + tradingFeeRate);
+        fee_ = collateral_.mulUp(tradingFeeRate);
     }
 
     function unwindAndSwap(
