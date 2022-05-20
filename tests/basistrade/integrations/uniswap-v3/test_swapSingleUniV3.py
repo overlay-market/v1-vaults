@@ -84,7 +84,7 @@ def test_swap_slippage_weth_to_ovl(eth_basis_trade, ovl,
     k = weth_res_pre * ovl_res_pre
 
     # calc amount resulting in >2% price impact
-    amount = (k/(0.979 * weth_res_pre)) - ovl_res_pre
+    amount = (k/(0.978 * weth_res_pre)) - ovl_res_pre
 
     # deposit weth
     weth.approve(eth_basis_trade.address, amount, {'from': alice})
@@ -119,7 +119,7 @@ def test_swap_slippage_ovl_to_weth(eth_basis_trade, ovl,
     k = weth_res_pre * ovl_res_pre
 
     # calc amount resulting in >2% price impact
-    amount = (k/(0.979 * ovl_res_pre)) - weth_res_pre
+    amount = (k/(0.978 * ovl_res_pre)) - weth_res_pre
 
     # transfer ovl to eth_basis_trade to swap it later
     ovl.approve(eth_basis_trade.address, amount, {'from': alice})
