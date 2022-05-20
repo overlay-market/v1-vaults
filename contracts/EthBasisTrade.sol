@@ -36,8 +36,6 @@ contract EthBasisTrade {
     /// @dev when currState = 1, contract holds a long on ETH/OVL
     uint256 public currState = 0; // TODO: change to enum
 
-    event Update(uint256 toState, uint256 amount);
-
     constructor(
         ISwapRouter _swapRouter,
         address _ovlState,
