@@ -131,12 +131,12 @@ contract EthBasisTrade {
         amountOut_ = swapRouter.exactInputSingle(params);
     }
 
-    function buildOvlPosition(uint256 _size, uint256 _priceLimit)
+    function buildOvlPosition(uint256 _amountInWithFees, uint256 _priceLimit)
         public
         onlyOwner
         returns (uint256 positionId_)
     {
-        (uint256 collateral, uint256 fee) = getOverlayTradingFee(_size);
+        (uint256 collateral, uint256 fee) = getOverlayTradingFee(_amountInWithFees);
         TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
         positionId_ = ovlMarket.build(collateral, ONE, true, _priceLimit);
     }
