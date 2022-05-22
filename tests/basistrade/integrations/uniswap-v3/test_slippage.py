@@ -36,14 +36,14 @@ def test_get_quote_at_tick_for_ovlweth(ovl, weth, eth_basis_trade,
 
 
 @given(
-    to_eth=strategy('bool')
+    to_ovl=strategy('bool')
 )
-def test_getOffsetTick(eth_basis_trade, univ3_oe_pool, to_eth):
+def test_getOffsetTick(eth_basis_trade, univ3_oe_pool, to_ovl):
 
     pool_state = interface.IUniswapV3PoolState(univ3_oe_pool)
     _, tick, _, _, _, _, _ = pool_state.slot0()
-    obs_result = eth_basis_trade.getOffsetTick(to_eth)
-    if to_eth:
-        assert obs_result == tick + 200
-    else:
+    obs_result = eth_basis_trade.getOffsetTick(to_ovl)
+    if to_ovl:
         assert obs_result == tick - 200
+    else:
+        assert obs_result == tick + 200

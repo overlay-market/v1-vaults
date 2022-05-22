@@ -26,7 +26,7 @@ contract EthBasisTrade {
     IOverlayV1Token public immutable ovl;
     IOverlayV1Market public immutable ovlMarket;
     IOverlayV1State public immutable ovlState;
-    address public immutable WETH9;
+    address public immutable baseToken;
     address public immutable pool;
     address public immutable owner;
 
@@ -39,7 +39,7 @@ contract EthBasisTrade {
     constructor(
         ISwapRouter _swapRouter,
         address _ovlState,
-        address _WETH9,
+        address _baseToken,
         address _ovl,
         address _pool,
         address _ovlMarket
@@ -47,7 +47,7 @@ contract EthBasisTrade {
         owner = msg.sender;
         swapRouter = _swapRouter;
         ovlState = IOverlayV1State(_ovlState);
-        WETH9 = _WETH9;
+        baseToken = _baseToken;
         ovl = IOverlayV1Token(_ovl);
         pool = _pool;
         ovlMarket = IOverlayV1Market(_ovlMarket);
@@ -60,16 +60,16 @@ contract EthBasisTrade {
 
     /// TODO: Currently taking WETH deposits. Change to accept ETH deposits.
     function depositWeth(uint256 _amountIn) external onlyOwner {
-        IERC20(WETH9).transferFrom(msg.sender, address(this), _amountIn);
+        IERC20(baseToken).transferFrom(msg.sender, address(this), _amountIn);
     }
 
-    function getOffsetTick(bool _toEth) public view returns (int24 tick_) {
+    function getOffsetTick(bool _toOvl) public view returns (int24 tick_) {
         int24 tickCurr;
         (, tickCurr, , , , , ) = IUniswapV3Pool(pool).slot0();
-        if (_toEth) {
-            tick_ = tickCurr + 200;
-        } else {
+        if (_toOvl) {
             tick_ = tickCurr - 200;
+        } else {
+            tick_ = tickCurr + 200;
         }
     }
 
@@ -97,7 +97,7 @@ contract EthBasisTrade {
         }
     }
 
-    function swapSingleUniV3(uint256 _amountIn, bool _toEth)
+    function swapSingleUniV3(uint256 _amountIn, bool _toOvl)
         public
         onlyOwner
         returns (uint256 amountOut_)
@@ -105,14 +105,14 @@ contract EthBasisTrade {
         address tokenIn;
         address tokenOut;
 
-        if (_toEth) {
-            tokenIn = address(ovl);
-            tokenOut = WETH9;
-        } else {
-            tokenIn = WETH9;
+        if (_toOvl) {
+            tokenIn = baseToken;
             tokenOut = address(ovl);
+        } else {
+            tokenIn = address(ovl);
+            tokenOut = baseToken;
         }
-        int24 tick = getOffsetTick(_toEth);
+        int24 tick = getOffsetTick(_toOvl);
         uint256 amountOutMinimum = getQuoteAtTick(tick, uint128(_amountIn), tokenIn, tokenOut);
 
         TransferHelper.safeApprove(tokenIn, address(swapRouter), _amountIn);
@@ -167,12 +167,12 @@ contract EthBasisTrade {
     ) public onlyOwner returns (uint256) {
         unwindOvlPosition(_posId, _fraction, _priceLimit);
         uint256 ovlAmount = ovl.balanceOf(address(this));
-        return swapSingleUniV3(ovlAmount, true);
+        return swapSingleUniV3(ovlAmount, false);
     }
 
     function swapAndBuild() public onlyOwner {
-        uint256 ethAmount = IERC20(WETH9).balanceOf(address(this));
-        uint256 ovlAmount = swapSingleUniV3(ethAmount, false);
+        uint256 baseTokenAmount = IERC20(baseToken).balanceOf(address(this));
+        uint256 ovlAmount = swapSingleUniV3(baseTokenAmount, true);
         posId = buildOvlPosition(ovlAmount, 10e18);
     }
 
@@ -190,17 +190,17 @@ contract EthBasisTrade {
     }
 
     function withdraw() external onlyOwner {
-        uint256 ethAmount;
+        uint256 baseTokenAmount;
         if (currState == 0) {
-            ethAmount = IERC20(WETH9).balanceOf(address(this));
-            _withdraw(ethAmount);
+            baseTokenAmount = IERC20(baseToken).balanceOf(address(this));
+            _withdraw(baseTokenAmount);
         } else {
-            ethAmount = unwindAndSwap(posId, ONE, 0);
-            _withdraw(ethAmount);
+            baseTokenAmount = unwindAndSwap(posId, ONE, 0);
+            _withdraw(baseTokenAmount);
         }
     }
 
-    function _withdraw(uint256 _ethAmount) public onlyOwner {
-        IERC20(WETH9).transfer(msg.sender, _ethAmount);
+    function _withdraw(uint256 _baseTokenAmount) public onlyOwner {
+        IERC20(baseToken).transfer(msg.sender, _baseTokenAmount);
     }
 }

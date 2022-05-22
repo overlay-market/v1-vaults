@@ -18,10 +18,10 @@ def test_onlyOwner(eth_basis_trade, alice, bob, weth, amount):
     weth.approve(eth_basis_trade.address, amount, {'from': alice})
     eth_basis_trade.depositWeth(amount, {'from': alice})
 
-    eth_basis_trade.swapSingleUniV3(amount/2, False, {'from': alice})
+    eth_basis_trade.swapSingleUniV3(amount/2, True, {'from': alice})
 
     with reverts('!owner'):
-        eth_basis_trade.swapSingleUniV3(amount/2, False, {'from': bob})
+        eth_basis_trade.swapSingleUniV3(amount/2, True, {'from': bob})
 
 
 @given(
@@ -37,7 +37,7 @@ def test_swap_amounts(eth_basis_trade, ovl, weth, alice,
     weth_res_pre = weth.balanceOf(univ3_oe_pool)
     ovl_res_pre = ovl.balanceOf(univ3_oe_pool)
 
-    eth_basis_trade.swapSingleUniV3(amount, False, {'from': alice})
+    eth_basis_trade.swapSingleUniV3(amount, True, {'from': alice})
 
     weth_res_post = weth.balanceOf(univ3_oe_pool)
     ovl_res_post = ovl.balanceOf(univ3_oe_pool)
@@ -51,7 +51,7 @@ def test_swap_amounts(eth_basis_trade, ovl, weth, alice,
     weth_res_pre = weth.balanceOf(univ3_oe_pool)
     ovl_res_pre = ovl.balanceOf(univ3_oe_pool)
 
-    eth_basis_trade.swapSingleUniV3(ovl_bal, True, {'from': alice})
+    eth_basis_trade.swapSingleUniV3(ovl_bal, False, {'from': alice})
 
     weth_res_post = weth.balanceOf(univ3_oe_pool)
     ovl_res_post = ovl.balanceOf(univ3_oe_pool)
@@ -76,7 +76,7 @@ def test_swap_slippage_weth_to_ovl(eth_basis_trade, ovl,
     eth_basis_trade.depositWeth(amount, {'from': alice})
 
     # swap successful since within 2% slippage
-    eth_basis_trade.swapSingleUniV3(amount, False, {'from': alice})
+    eth_basis_trade.swapSingleUniV3(amount, True, {'from': alice})
 
     # failing swap
     weth_res_pre = weth.balanceOf(univ3_oe_pool)
@@ -92,7 +92,7 @@ def test_swap_slippage_weth_to_ovl(eth_basis_trade, ovl,
 
     # swap fails because >2% slippage
     with reverts('Too little received'):
-        eth_basis_trade.swapSingleUniV3(amount, False, {'from': alice})
+        eth_basis_trade.swapSingleUniV3(amount, True, {'from': alice})
 
 
 def test_swap_slippage_ovl_to_weth(eth_basis_trade, ovl,
@@ -111,7 +111,7 @@ def test_swap_slippage_ovl_to_weth(eth_basis_trade, ovl,
     ovl.transfer(eth_basis_trade, amount, {'from': alice})
 
     # swap successful since within 2% slippage
-    eth_basis_trade.swapSingleUniV3(amount, True, {'from': alice})
+    eth_basis_trade.swapSingleUniV3(amount, False, {'from': alice})
 
     # failing swap
     weth_res_pre = weth.balanceOf(univ3_oe_pool)
@@ -127,4 +127,4 @@ def test_swap_slippage_ovl_to_weth(eth_basis_trade, ovl,
 
     # swap fails because >2% slippage
     with reverts('Too little received'):
-        eth_basis_trade.swapSingleUniV3(amount, True, {'from': alice})
+        eth_basis_trade.swapSingleUniV3(amount, False, {'from': alice})
