@@ -97,22 +97,42 @@ contract EthBasisTrade {
         }
     }
 
-    function swapSingleUniV3(uint256 _amountIn, bool _toOvl)
+    function swapSingleToBaseTokenUniV3(uint256 _amountIn)
         public
         onlyOwner
         returns (uint256 amountOut_)
     {
-        address tokenIn;
-        address tokenOut;
+        address tokenIn = address(ovl);
+        address tokenOut = baseToken;
 
-        if (_toOvl) {
-            tokenIn = baseToken;
-            tokenOut = address(ovl);
-        } else {
-            tokenIn = address(ovl);
-            tokenOut = baseToken;
-        }
-        int24 tick = getOffsetTick(_toOvl);
+        int24 tick = getOffsetTick(false);
+        uint256 amountOutMinimum = getQuoteAtTick(tick, uint128(_amountIn), tokenIn, tokenOut);
+
+        TransferHelper.safeApprove(tokenIn, address(swapRouter), _amountIn);
+
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: IUniswapV3PoolImmutables(pool).fee(),
+            recipient: address(this),
+            deadline: block.timestamp + 120,
+            amountIn: _amountIn,
+            amountOutMinimum: amountOutMinimum,
+            sqrtPriceLimitX96: 0
+        });
+
+        amountOut_ = swapRouter.exactInputSingle(params);
+    }
+
+    function swapSingleToOvlUniV3(uint256 _amountIn)
+        public
+        onlyOwner
+        returns (uint256 amountOut_)
+    {
+        address tokenIn = baseToken;
+        address tokenOut = address(ovl);
+
+        int24 tick = getOffsetTick(true);
         uint256 amountOutMinimum = getQuoteAtTick(tick, uint128(_amountIn), tokenIn, tokenOut);
 
         TransferHelper.safeApprove(tokenIn, address(swapRouter), _amountIn);
@@ -167,12 +187,12 @@ contract EthBasisTrade {
     ) public onlyOwner returns (uint256) {
         unwindOvlPosition(_posId, _fraction, _priceLimit);
         uint256 ovlAmount = ovl.balanceOf(address(this));
-        return swapSingleUniV3(ovlAmount, false);
+        return swapSingleToBaseTokenUniV3(ovlAmount);
     }
 
     function swapAndBuild() public onlyOwner {
         uint256 baseTokenAmount = IERC20(baseToken).balanceOf(address(this));
-        uint256 ovlAmount = swapSingleUniV3(baseTokenAmount, true);
+        uint256 ovlAmount = swapSingleToOvlUniV3(baseTokenAmount);
         posId = buildOvlPosition(ovlAmount, 10e18);
     }
 
