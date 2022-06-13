@@ -1,4 +1,4 @@
-from brownie import reverts
+from brownie import reverts, chain
 from brownie.test import given, strategy
 import pytest
 
@@ -39,6 +39,10 @@ def test_pos_unwind_as_expected(eth_basis_trade, market, state, feed,
     # build position
     eth_basis_trade.buildOvlPosition(amount, 10e18, {'from': alice})
 
+    # Change in position stats is less if sufficient time
+    # has passed since any trade on the market
+    chain.mine(timedelta=2*24*60*60)
+
     # get position stats expected
     exp_value = state.value(market, eth_basis_trade, 0)
     exp_cost = state.cost(market, eth_basis_trade, 0)
@@ -49,9 +53,9 @@ def test_pos_unwind_as_expected(eth_basis_trade, market, state, feed,
 
     # unwind position
     tx_unwind = eth_basis_trade.unwindOvlPosition(0, 1e18, 0, {'from': alice})
-
-    assert tx_unwind.events['Unwind']['sender'] == eth_basis_trade
-    assert tx_unwind.events['Unwind']['positionId'] == 0
-    assert tx_unwind.events['Unwind']['fraction'] == 1e18
-    assert pytest.approx(tx_unwind.events['Unwind']['mint']) == exp_mint
-    assert pytest.approx(tx_unwind.events['Unwind']['price']) == exp_price
+    unw_events = tx_unwind.events['Unwind']
+    assert unw_events['sender'] == eth_basis_trade
+    assert unw_events['positionId'] == 0
+    assert unw_events['fraction'] == 1e18
+    assert pytest.approx(unw_events['mint'], rel=1e-4) == exp_mint
+    assert pytest.approx(unw_events['price'], rel=1e-4) == exp_price
