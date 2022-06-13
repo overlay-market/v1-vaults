@@ -7,12 +7,12 @@ import random
 
 @pytest.fixture(scope="module")
 def ovl_v1_core(pm):
-    return pm("overlay-market/v1-core@1.0.0-beta.2")
+    return pm("overlay-market/v1-core@1.0.0-beta.4")
 
 
 @pytest.fixture(scope="module")
 def ovl_v1_periphery(pm):
-    return pm("overlay-market/v1-periphery@1.0.0-beta.5")
+    return pm("overlay-market/v1-periphery@1.0.0-beta.6")
 
 
 @pytest.fixture(scope="module")
@@ -61,13 +61,19 @@ def governor_role():
 
 
 @pytest.fixture(scope="module", params=[8000000])
-def create_token(ovl_v1_core, gov, alice, bob, request):
+def create_token(ovl_v1_core, gov, alice, bob, minter_role, governor_role,
+                 request):
     sup = request.param
 
     def create_token(supply=sup):
         ovl = ovl_v1_core.OverlayV1Token
         tok = gov.deploy(ovl)
+
+        # mint the token then renounce minter role
+        tok.grantRole(minter_role, gov, {"from": gov})
         tok.mint(gov, supply * 10 ** tok.decimals(), {"from": gov})
+        tok.renounceRole(minter_role, gov, {"from": gov})
+
         tok.transfer(alice, (supply/2) * 10 ** tok.decimals(), {"from": gov})
         tok.transfer(bob, (supply/2) * 10 ** tok.decimals(), {"from": gov})
         return tok
