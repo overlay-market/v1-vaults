@@ -151,22 +151,23 @@ contract EthBasisTrade {
         amountOut_ = swapRouter.exactInputSingle(params);
     }
 
-    function buildOvlPosition(uint256 _amountInWithFees, uint256 _priceLimit)
-        public
-        onlyOwner
-        returns (uint256 positionId_)
-    {
+    function buildOvlPosition(
+        uint256 _amountInWithFees,
+        uint256 _priceLimit,
+        address _marketAddress
+    ) public onlyOwner returns (uint256 positionId_) {
         (uint256 collateral, uint256 fee) = getOverlayTradingFee(_amountInWithFees);
-        TransferHelper.safeApprove(address(ovl), address(ovlMarket), collateral + fee);
-        positionId_ = ovlMarket.build(collateral, ONE, true, _priceLimit);
+        TransferHelper.safeApprove(address(ovl), _marketAddress, collateral + fee);
+        positionId_ = IOverlayV1Market(_marketAddress).build(collateral, ONE, true, _priceLimit);
     }
 
     function unwindOvlPosition(
         uint256 _positionId,
         uint256 _fraction,
-        uint256 _priceLimit
+        uint256 _priceLimit,
+        address _marketAddress
     ) public onlyOwner {
-        ovlMarket.unwind(_positionId, _fraction, _priceLimit);
+        IOverlayV1Market(_marketAddress).unwind(_positionId, _fraction, _priceLimit);
     }
 
     /// @notice collateral is equal to notional size since leverage is always 1 for basis trade
@@ -185,7 +186,7 @@ contract EthBasisTrade {
         uint256 _fraction,
         uint256 _priceLimit
     ) public onlyOwner returns (uint256) {
-        unwindOvlPosition(_posId, _fraction, _priceLimit);
+        unwindOvlPosition(_posId, _fraction, _priceLimit, address(ovlMarket));
         uint256 ovlAmount = ovl.balanceOf(address(this));
         return swapSingleToBaseTokenUniV3(ovlAmount);
     }
@@ -193,7 +194,7 @@ contract EthBasisTrade {
     function swapAndBuild() public onlyOwner {
         uint256 baseTokenAmount = IERC20(baseToken).balanceOf(address(this));
         uint256 ovlAmount = swapSingleToOvlUniV3(baseTokenAmount);
-        posId = buildOvlPosition(ovlAmount, 10e18);
+        posId = buildOvlPosition(ovlAmount, 10e18, address(ovlMarket));
     }
 
     function update() external {

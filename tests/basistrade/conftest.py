@@ -1,6 +1,8 @@
 import pytest
-from brownie import interface, chain, Contract
-from brownie import EthBasisTrade, TestMintRouter, web3
+from brownie import (
+            interface, chain,
+            Contract, EthBasisTrade,
+            TestMintRouter, web3)
 from brownie_tokens import MintableForkToken
 import random
 
@@ -42,7 +44,12 @@ def rando2(accounts):
 
 @pytest.fixture(scope="module")
 def fee_recipient(accounts):
-    yield accounts[4]
+    yield accounts[5]
+
+
+@pytest.fixture(scope="module")
+def fake_factory(accounts):
+    yield accounts[6]
 
 
 @pytest.fixture(scope="module")
@@ -217,6 +224,26 @@ def univ3_swap_router():
     yield load_contract("0xE592427A0AEce92De3Edee1F18E0157C05861564")
 
 
+@pytest.fixture(scope="module", params=[
+    (600, 3000, 1000000000000000000, 2000000000000000000000000)
+])
+def create_fake_feed(gov, ovl_v1_core, request):
+    micro, macro, p, r = request.param
+
+    def create_fake_feed(micro_window=micro, macro_window=macro,
+                         price=p, reserve=r):
+        fake_feed = gov.deploy(ovl_v1_core.OverlayV1FeedMock, micro_window,
+                               macro_window, price, reserve)
+        return fake_feed
+
+    yield create_fake_feed
+
+
+@pytest.fixture(scope="module")
+def fake_feed(create_fake_feed):
+    yield create_fake_feed()
+
+
 @pytest.fixture(scope="module", params=[(600, 3600, 300, 15)])
 def create_feed_factory(ovl_v1_core, gov, ovl, univ3_oe_pool,
                         uni_v3_factory, request):
@@ -269,6 +296,45 @@ def feed(create_feed):
     yield create_feed()
 
 
+@pytest.fixture(scope="module", params=[(600, 3000)])
+def create_mock_feed_factory(gov, ovl_v1_core, request):
+    micro, macro = request.param
+
+    def create_mock_feed_factory(micro_window=micro, macro_window=macro):
+        feed_factory = gov.deploy(ovl_v1_core.OverlayV1FeedFactoryMock,
+                                  micro_window,
+                                  macro_window)
+        return feed_factory
+
+    yield create_mock_feed_factory
+
+
+@pytest.fixture(scope="module")
+def mock_feed_factory(create_mock_feed_factory):
+    yield create_mock_feed_factory()
+
+
+# Mock feed to easily change price/reserve for testing of various conditions
+@pytest.fixture(scope="module", params=[
+    (1000000000000000000, 2000000000000000000000000)
+])
+def create_mock_feed(ovl_v1_core, mock_feed_factory, request):
+    price, reserve = request.param
+
+    def create_mock_feed(price=price, reserve=reserve):
+        tx = mock_feed_factory.deployFeed(price, reserve)
+        mock_feed_addr = tx.return_value
+        mock_feed = ovl_v1_core.OverlayV1FeedMock.at(mock_feed_addr)
+        return mock_feed
+
+    yield create_mock_feed
+
+
+@pytest.fixture(scope="module")
+def mock_feed(create_mock_feed):
+    yield create_mock_feed()
+
+
 @pytest.fixture(scope="module", params=[(
     1220000000000,  # k
     500000000000000000,  # lmbda
@@ -287,7 +353,7 @@ def feed(create_feed):
     15,  # averageBlockTime
 )])
 def create_factory(ovl_v1_core, gov, fee_recipient, ovl, feed_factory, feed,
-                   governor_role, request):
+                   mock_feed_factory, mock_feed, governor_role, request):
     params = request.param
 
     def create_factory(tok=ovl, recipient=fee_recipient, risk_params=params):
@@ -304,9 +370,13 @@ def create_factory(ovl_v1_core, gov, fee_recipient, ovl, feed_factory, feed,
 
         # add feed factory as approved for market factory to deploy markets on
         factory.addFeedFactory(feed_factory, {"from": gov})
+        factory.addFeedFactory(mock_feed_factory, {"from": gov})
 
         # deploy a market on feed
-        factory.deployMarket(feed_factory, feed, risk_params, {"from": gov})
+        factory.deployMarket(feed_factory, feed,
+                             risk_params, {"from": gov})
+        factory.deployMarket(mock_feed_factory, mock_feed,
+                             risk_params, {"from": gov})
 
         return factory
 
@@ -323,6 +393,13 @@ def market(ovl_v1_core, gov, feed, factory):
     market_addr = factory.getMarket(feed)
     market = ovl_v1_core.OverlayV1Market.at(market_addr)
     yield market
+
+
+@pytest.fixture(scope="module")
+def mock_market(ovl_v1_core, gov, mock_feed, factory):
+    market_addr = factory.getMarket(mock_feed)
+    mock_market = ovl_v1_core.OverlayV1Market.at(market_addr)
+    yield mock_market
 
 
 @pytest.fixture(scope="module")
