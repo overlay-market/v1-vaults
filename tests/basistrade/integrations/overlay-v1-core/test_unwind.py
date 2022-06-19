@@ -1,4 +1,4 @@
-from brownie import reverts, chain
+from brownie import reverts
 from brownie.test import given, strategy
 import pytest
 
@@ -13,16 +13,19 @@ def isolation(fn_isolation):
 @given(
     amount=strategy('uint256', min_value=2e14, max_value=20e18)
 )
-def test_onlyOwner(eth_basis_trade, alice, bob, ovl, amount):
+def test_onlyOwner(eth_basis_trade, alice, bob, ovl, market, amount):
     # transfer ovl to eth_basis_trade
     ovl.approve(eth_basis_trade.address, amount, {'from': alice})
     ovl.transfer(eth_basis_trade, amount, {'from': alice})
 
-    eth_basis_trade.buildOvlPosition(amount, 10e18, {'from': alice})
-    eth_basis_trade.unwindOvlPosition(0, 1e18, 0, {'from': alice})
+    eth_basis_trade.buildOvlPosition(amount, 10e18, market.address,
+                                     {'from': alice})
+    eth_basis_trade.unwindOvlPosition(0, 1e18, 0, market.address,
+                                      {'from': alice})
 
     with reverts('!owner'):
-        eth_basis_trade.unwindOvlPosition(0, 1e18, 0, {'from': bob})
+        eth_basis_trade.unwindOvlPosition(0, 1e18, 0, market.address,
+                                          {'from': bob})
 
 
 # min value decided based on min position size for market

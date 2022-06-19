@@ -336,7 +336,7 @@ def mock_feed(create_mock_feed):
 
 
 @pytest.fixture(scope="module", params=[(
-    1220000000000,  # k
+    122000000000,  # k
     500000000000000000,  # lmbda
     2500000000000000,  # delta
     5000000000000000000,  # capPayoff
@@ -344,13 +344,13 @@ def mock_feed(create_mock_feed):
     5000000000000000000,  # capLeverage
     2592000,  # circuitBreakerWindow
     66670000000000000000000,  # circuitBreakerMintTarget
-    100000000000000000,  # maintenanceMarginFraction
+    100000000000000000,  # maintenanceMargin
     100000000000000000,  # maintenanceMarginBurnRate
-    10000000000000000,  # liquidationFeeRate
+    50000000000000000,  # liquidationFeeRate
     750000000000000,  # tradingFeeRate
     100000000000000,  # minCollateral
     25000000000000,  # priceDriftUpperLimit
-    15,  # averageBlockTime
+    14,  # averageBlockTime
 )])
 def create_factory(ovl_v1_core, gov, fee_recipient, ovl, feed_factory, feed,
                    mock_feed_factory, mock_feed, governor_role, request):
