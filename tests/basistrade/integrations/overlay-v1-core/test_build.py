@@ -13,17 +13,15 @@ def isolation(fn_isolation):
 @given(
     amount=strategy('uint256', min_value=2e14, max_value=20e18)
 )
-def test_onlyOwner(eth_basis_trade, alice, market, bob, ovl, amount):
+def test_onlyOwner(eth_basis_trade, alice, bob, ovl, amount):
     # transfer ovl to eth_basis_trade
     ovl.approve(eth_basis_trade.address, amount, {'from': alice})
     ovl.transfer(eth_basis_trade, amount, {'from': alice})
 
-    eth_basis_trade.buildOvlPosition(amount, 10e18, market.address,
-                                     {'from': alice})
+    eth_basis_trade.buildOvlPosition(amount, 10e18, {'from': alice})
 
     with reverts('!owner'):
-        eth_basis_trade.buildOvlPosition(amount, 10e18, market.address,
-                                         {'from': bob})
+        eth_basis_trade.buildOvlPosition(amount, 10e18, {'from': bob})
 
 
 # min value decided based on min position size for market
@@ -31,15 +29,14 @@ def test_onlyOwner(eth_basis_trade, alice, market, bob, ovl, amount):
 @given(
     amount=strategy('uint256', min_value=2e14, max_value=20e18)
 )
-def test_build_fees(eth_basis_trade, ovl, market, alice, amount):
+def test_build_fees(eth_basis_trade, ovl, alice, amount):
 
     # transfer ovl to eth_basis_trade
     ovl.approve(eth_basis_trade.address, amount, {'from': alice})
     ovl.transfer(eth_basis_trade, amount, {'from': alice})
 
     # build position
-    tx_build = eth_basis_trade.buildOvlPosition(amount, 10e18, market.address,
-                                                {'from': alice})
+    tx_build = eth_basis_trade.buildOvlPosition(amount, 10e18, {'from': alice})
 
     tot_amount_transferred = tx_build.events['Transfer'][0]['value']
     assert pytest.approx(tot_amount_transferred) == amount
@@ -75,8 +72,7 @@ def test_pos_built_as_expected(eth_basis_trade, market, state,
     exp_price = state.ask(market, fraction_oi)
 
     # build position
-    tx_build = eth_basis_trade.buildOvlPosition(amount, 10e18, market.address,
-                                                {'from': alice})
+    tx_build = eth_basis_trade.buildOvlPosition(amount, 10e18, {'from': alice})
 
     assert tx_build.events['Build']['sender'] == eth_basis_trade
     assert tx_build.events['Build']['positionId'] == 0

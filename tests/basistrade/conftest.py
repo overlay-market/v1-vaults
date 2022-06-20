@@ -436,3 +436,26 @@ def create_eth_basis_trade(univ3_swap_router, weth, ovl,
 @pytest.fixture(scope="module")
 def eth_basis_trade(create_eth_basis_trade):
     yield create_eth_basis_trade()
+
+
+@pytest.fixture(scope="module")
+def create_mock_eth_basis_trade(univ3_swap_router, weth, ovl,
+                                univ3_oe_pool, mock_market, alice, state):
+
+    def create_eth_basis_trade(
+                        swap_router=univ3_swap_router.address,
+                        st=state.address,
+                        weth=weth.address,
+                        ovl=ovl.address,
+                        pool=univ3_oe_pool.address,
+                        mrkt=mock_market.address
+                        ):
+        basistrade = alice.deploy(EthBasisTrade, swap_router, st,
+                                  weth, ovl, pool, mrkt)
+        return basistrade
+    yield create_eth_basis_trade
+
+
+@pytest.fixture(scope="module")
+def mock_eth_basis_trade(create_mock_eth_basis_trade):
+    yield create_mock_eth_basis_trade()
