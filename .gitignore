@@ -8,3 +8,6 @@ reports/
 *.sw[op]
 .DS_Store
 *.bk
+todo
+pseudocode
+.vscode
