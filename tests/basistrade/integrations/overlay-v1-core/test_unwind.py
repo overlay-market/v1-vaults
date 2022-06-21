@@ -59,5 +59,15 @@ def test_pos_unwind_as_expected(mock_eth_basis_trade, mock_market,
     assert unw_events['sender'] == mock_eth_basis_trade
     assert unw_events['positionId'] == 0
     assert unw_events['fraction'] == 1e18
-    assert pytest.approx(unw_events['mint'], rel=1e-4) == exp_mint
-    assert pytest.approx(unw_events['price'], rel=1e-4) == exp_price
+    obs_mint = unw_events['mint']
+    assert pytest.approx(obs_mint, rel=1e-4) == exp_mint
+    print('Test exp mint vs obs mint after unwinding')
+    print(f'Exp: {exp_mint}')
+    print(f'Obs: {obs_mint}')
+    print(f'Dev: {(exp_mint - obs_mint)/obs_mint}')
+    obs_price = unw_events['price']
+    assert pytest.approx(obs_price, rel=1e-4) == exp_price
+    print('Test unwind price exp vs obs')
+    print(f'Exp: {exp_price}')
+    print(f'Obs: {obs_price}')
+    print(f'Dev: {(exp_price - obs_price)/obs_price}')

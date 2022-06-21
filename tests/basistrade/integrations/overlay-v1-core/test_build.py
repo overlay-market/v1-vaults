@@ -40,6 +40,10 @@ def test_build_fees(eth_basis_trade, ovl, alice, amount):
 
     tot_amount_transferred = tx_build.events['Transfer'][0]['value']
     assert pytest.approx(tot_amount_transferred) == amount
+    print('Test if only specified build amount is transferred out')
+    print(f'Exp: {amount}')
+    print(f'Obs: {tot_amount_transferred}')
+    print(f'Dev: {(tot_amount_transferred - amount)/amount}')
 
     fees_exp = eth_basis_trade.getOverlayTradingFee(amount)[1]
     fees_obs = tx_build.events['Transfer'][1]['value']
@@ -50,6 +54,10 @@ def test_build_fees(eth_basis_trade, ovl, alice, amount):
     fees_calc = col_calc * tfr
 
     assert pytest.approx(fees_calc) == fees_obs
+    print('Test build fees exp vs obs')
+    print(f'Exp: {fees_calc}')
+    print(f'Obs: {fees_obs}')
+    print(f'Dev: {(fees_calc - fees_obs)/fees_obs}')
 
 
 # min value decided based on min position size for market
@@ -76,7 +84,17 @@ def test_pos_built_as_expected(eth_basis_trade, market, state,
 
     assert tx_build.events['Build']['sender'] == eth_basis_trade
     assert tx_build.events['Build']['positionId'] == 0
-    assert pytest.approx(tx_build.events['Build']['oi']) == exp_oi
+    obs_oi = tx_build.events['Build']['oi']
+    assert pytest.approx(obs_oi) == exp_oi
+    print('Test build oi exp vs obs')
+    print(f'Exp: {exp_oi}')
+    print(f'Obs: {obs_oi}')
+    print(f'Dev: {(exp_oi - obs_oi)/obs_oi}')
     assert tx_build.events['Build']['debt'] == 0
     assert tx_build.events['Build']['isLong'] is True
-    assert pytest.approx(tx_build.events['Build']['price']) == exp_price
+    obs_price = tx_build.events['Build']['price']
+    assert pytest.approx(obs_price) == exp_price
+    print('Test build price exp vs obs')
+    print(f'Exp: {exp_price}')
+    print(f'Obs: {obs_price}')
+    print(f'Dev: {(exp_price - obs_price)/obs_price}')
